@@ -1,6 +1,20 @@
 
 const { supabaseRequest, getProducts } = require("./_lib");
 const { think, normalizeText } = require("./brain");
+const {
+  detectCustomerIntent
+} = require("./intelligence/intent");
+const {
+  buildResponseStrategy,
+  buildBehaviorInstructions
+} = require("./intelligence/response-strategy");
+const {
+  evaluatePolicyRequest,
+  buildPolicyInstructions
+} = require("./intelligence/policy-guard");
+const {
+  analyzeConversationContext
+} = require("./intelligence/context-memory");
 const crypto = require("crypto");
 
 // ======================================
@@ -45,14 +59,8 @@ async function getChatHistory(sessionId) {
     if (!Array.isArray(rows)) return [];
 
     return rows.reverse().flatMap(row => [
-      {
-        role: "user",
-        content: row.question
-      },
-      {
-        role: "assistant",
-        content: row.answer
-      }
+      { role: "user", content: row.question },
+      { role: "assistant", content: row.answer }
     ]);
   } catch (error) {
     console.error("Chat history retrieval failed:", error.message);
@@ -64,9 +72,7 @@ async function saveChat(sessionId, question, answer) {
   try {
     await supabaseRequest("chat_logs", {
       method: "POST",
-      headers: {
-        Prefer: "return=minimal"
-      },
+      headers: { Prefer: "return=minimal" },
       body: JSON.stringify({
         session_id: sessionId,
         question,
@@ -105,9 +111,7 @@ function formatProduct(product, index) {
   let pricing = `السعر: ${formatMoney(product.price, currency)}`;
 
   if (discounted) {
-    const saved =
-      Number(product.regular_price) - Number(product.price);
-
+    const saved = Number(product.regular_price) - Number(product.price);
     const percent = product.discount_percent ||
       Math.round(saved / Number(product.regular_price) * 100);
 
@@ -133,9 +137,7 @@ function formatProductAnswer(product) {
   let answer = `**${cleanText(product.name)}**\n\n`;
 
   if (discounted) {
-    const saved =
-      Number(product.regular_price) - Number(product.price);
-
+    const saved = Number(product.regular_price) - Number(product.price);
     const percent = product.discount_percent ||
       Math.round(saved / Number(product.regular_price) * 100);
 
@@ -145,8 +147,7 @@ function formatProductAnswer(product) {
       `الخصم: ${percent}%\n` +
       `وفرت: ${formatMoney(saved, currency)}\n\n`;
   } else {
-    answer +=
-      `السعر الحالي: ${formatMoney(product.price, currency)}\n\n`;
+    answer += `السعر الحالي: ${formatMoney(product.price, currency)}\n\n`;
   }
 
   answer +=
@@ -176,9 +177,9 @@ function isAllProductsQuestion(message) {
 }
 
 function isDiscountQuestion(message) {
-  const text = normalizeText(message);
-
-  return /(?:خصم|تخفيض|تخفيضات|عروض|عرض|قبل الخصم|بعد الخصم|discount|sale|offer|offers)/.test(text);
+  return /(?:خصم|تخفيض|تخفيضات|عروض|عرض|قبل الخصم|بعد الخصم|discount|sale|offer|offers)/.test(
+    normalizeText(message)
+  );
 }
 
 function isPriceQuestion(message) {
@@ -188,115 +189,61 @@ function isPriceQuestion(message) {
 }
 
 function isCheapestQuestion(message) {
-  const text = normalizeText(message);
-
-  return /ارخص|الاقل سعرا|اقل سعر|cheap|cheapest|lowest price/.test(text);
+  return /ارخص|الاقل سعرا|اقل سعر|cheap|cheapest|lowest price/.test(
+    normalizeText(message)
+  );
 }
 
 function isCheaperThanPreviousQuestion(message) {
-  const text = normalizeText(message);
-
-  return /(?:ارخص منه|ارخص منها|اقل منه|اقل منها|ارخص من ده|ارخص من دي|cheaper than that)/.test(text);
+  return /(?:ارخص منه|ارخص منها|اقل منه|اقل منها|ارخص من ده|ارخص من دي|cheaper than that)/.test(
+    normalizeText(message)
+  );
 }
-
-// ======================================
-// SMART RECOMMENDATION SYSTEM
-// ======================================
 
 function isRecommendationQuestion(message) {
-  const text = normalizeText(message);
-
-  return /(?:رشح|ترشح|رشحلي|ترشيح|انسب|مناسب|مناسبه|افضل|احسن|عايز|عاوز|محتاج|بدور على|اقترح|recommend|suggest|looking for|best for)/.test(text);
+  return /(?:رشح|ترشح|رشحلي|ترشيح|انسب|مناسب|مناسبه|افضل|احسن|عايز|عاوز|محتاج|بدور على|اقترح|recommend|suggest|looking for|best for)/.test(
+    normalizeText(message)
+  );
 }
+
+// ======================================
+// SMART RECOMMENDATIONS
+// ======================================
 
 const RECOMMENDATION_NEEDS = {
   dry_hair: [
-    "جاف",
-    "جفاف",
-    "ناشف",
-    "ناشفه",
-    "dry hair",
-    "dry",
-    "dehydrated hair"
+    "جاف", "جفاف", "ناشف", "ناشفه", "dry hair", "dry", "dehydrated hair"
   ],
-
   damaged_hair: [
-    "تالف",
-    "تالفه",
-    "تلف",
-    "متضرر",
-    "متضرره",
-    " damaged",
-    "damaged hair",
-    "repair"
+    "تالف", "تالفه", "تلف", "متضرر", "متضرره",
+    "damaged hair", "repair"
   ],
-
   frizzy_hair: [
-    "هيشان",
-    "هايش",
-    "منفوش",
-    "frizzy",
-    "frizz"
+    "هيشان", "هايش", "منفوش", "frizzy", "frizz"
   ],
-
   hair_fall: [
-    "تساقط",
-    "بيسقط",
-    "تساقط الشعر",
-    "hair fall",
-    "hair loss"
+    "تساقط", "بيسقط", "تساقط الشعر", "hair fall", "hair loss"
   ],
-
   oily_hair: [
-    "دهني",
-    "دهنيه",
-    "دهون",
-    "زيتي",
-    "oily hair",
-    "oily"
+    "دهني", "دهنيه", "دهون", "زيتي", "oily hair", "oily"
   ],
-
   dandruff: [
-    "قشره",
-    "قشره الشعر",
-    "قشرة",
-    "dandruff"
+    "قشره", "قشره الشعر", "قشرة", "dandruff"
   ],
-
   split_ends: [
-    "تقصف",
-    "متقصف",
-    "اطراف متقصفه",
-    "split ends"
+    "تقصف", "متقصف", "اطراف متقصفه", "split ends"
   ],
-
   weak_hair: [
-    "ضعيف",
-    "ضعيفه",
-    "ضعف الشعر",
-    "weak hair",
-    "strengthen hair"
+    "ضعيف", "ضعيفه", "ضعف الشعر", "weak hair", "strengthen hair"
   ],
-
   skin_dryness: [
-    "جفاف البشره",
-    "بشره جافه",
-    "جلد جاف",
-    "dry skin"
+    "جفاف البشره", "بشره جافه", "جلد جاف", "dry skin"
   ],
-
   skin_oiliness: [
-    "بشره دهنيه",
-    "دهون البشره",
-    "oily skin"
+    "بشره دهنيه", "دهون البشره", "oily skin"
   ],
-
   skin_acne: [
-    "حب الشباب",
-    "حبوب",
-    "بثور",
-    "acne",
-    "pimples"
+    "حب الشباب", "حبوب", "بثور", "acne", "pimples"
   ]
 };
 
@@ -313,68 +260,6 @@ function detectRecommendationNeeds(message) {
   return detected;
 }
 
-function getRecommendationMatches(message, products) {
-  const tokens = getSearchTokens(message);
-  const requestedType = getProductType(tokens);
-  const needs = detectRecommendationNeeds(message);
-
-  const available = products.filter(product =>
-    product.is_in_stock === true
-  );
-
-  const typeMatches = requestedType
-    ? available.filter(product => {
-        const nameTokens = getSearchTokens(product.name);
-        return getProductType(nameTokens) === requestedType;
-      })
-    : available;
-
-  const ranked = typeMatches.map(product => {
-    const searchableText = normalizeText(
-      cleanText(
-        `${product.name || ""} ${product.description || ""}`
-      )
-    );
-
-    const matchedNeeds = needs.filter(need => {
-      const terms = RECOMMENDATION_NEEDS[need];
-
-      return terms.some(term =>
-        searchableText.includes(normalizeText(term))
-      );
-    });
-
-    return {
-      product,
-      matchedNeeds,
-      score:
-        (requestedType ? 5 : 0) +
-        matchedNeeds.length * 10
-    };
-  });
-
-  ranked.sort((a, b) => b.score - a.score);
-
-  const matchingNeeds = needs.length > 0;
-
-  const confirmedMatches = matchingNeeds
-    ? ranked.filter(item => item.matchedNeeds.length > 0)
-    : ranked;
-
-  return {
-    requestedType,
-    needs,
-    typeMatches: ranked.map(item => item.product),
-    confirmedMatches: confirmedMatches.map(item => item.product),
-    candidates: (confirmedMatches.length ? confirmedMatches : ranked)
-      .slice(0, 12)
-      .map(item => ({
-        product: item.product,
-        matchedNeeds: item.matchedNeeds
-      }))
-  };
-}
-
 // ======================================
 // PRODUCT SEARCH
 // ======================================
@@ -389,11 +274,11 @@ const SEARCH_ALIASES = {
   "شامبو": "shampoo",
   "شامبوهات": "shampoo",
   "بلسم": "conditioner",
-  "سيروم": "serum",
-  "زيت": "oil",
-  "كريم": "cream",
   "كونديشنر": "conditioner",
-  "سيرم": "serum"
+  "سيروم": "serum",
+  "سيرم": "serum",
+  "زيت": "oil",
+  "كريم": "cream"
 };
 
 const STOP_WORDS = new Set([
@@ -468,13 +353,8 @@ function levenshteinDistance(a, b) {
 }
 
 function tokenSimilarity(queryToken, productTokens) {
-  if (productTokens.includes(queryToken)) {
-    return 1;
-  }
-
-  if (queryToken.length < 4) {
-    return 0;
-  }
+  if (productTokens.includes(queryToken)) return 1;
+  if (queryToken.length < 4) return 0;
 
   let best = 0;
 
@@ -483,13 +363,8 @@ function tokenSimilarity(queryToken, productTokens) {
       continue;
     }
 
-    const distance = levenshteinDistance(
-      queryToken,
-      productToken
-    );
-
-    const allowedDistance =
-      queryToken.length >= 8 ? 2 : 1;
+    const distance = levenshteinDistance(queryToken, productToken);
+    const allowedDistance = queryToken.length >= 8 ? 2 : 1;
 
     if (distance <= allowedDistance) {
       const similarity =
@@ -504,24 +379,14 @@ function tokenSimilarity(queryToken, productTokens) {
 
 function findMatchingProducts(message, products) {
   const queryTokens = getSearchTokens(message);
-
-  const searchWords = queryTokens.filter(
-    word => !STOP_WORDS.has(word)
-  );
-
+  const searchWords = queryTokens.filter(word => !STOP_WORDS.has(word));
   const queryType = getProductType(queryTokens);
 
-  if (!searchWords.length) {
-    return [];
-  }
+  if (!searchWords.length) return [];
 
   const ranked = products.map(product => {
     const nameTokens = getSearchTokens(product.name);
-
-    const descriptionTokens = getSearchTokens(
-      product.description || ""
-    );
-
+    const descriptionTokens = getSearchTokens(product.description || "");
     const productType = getProductType(nameTokens);
 
     let score = 0;
@@ -529,11 +394,7 @@ function findMatchingProducts(message, products) {
 
     for (const word of searchWords) {
       const nameSimilarity = tokenSimilarity(word, nameTokens);
-
-      const descriptionSimilarity = tokenSimilarity(
-        word,
-        descriptionTokens
-      );
+      const descriptionSimilarity = tokenSimilarity(word, descriptionTokens);
 
       if (nameSimilarity === 1) {
         score += word.length >= 5 ? 6 : 4;
@@ -549,11 +410,7 @@ function findMatchingProducts(message, products) {
     }
 
     if (searchWords.length >= 2) {
-      for (
-        let i = 0;
-        i <= nameTokens.length - searchWords.length;
-        i++
-      ) {
+      for (let i = 0; i <= nameTokens.length - searchWords.length; i++) {
         const phrase = nameTokens
           .slice(i, i + searchWords.length)
           .join(" ");
@@ -566,40 +423,25 @@ function findMatchingProducts(message, products) {
     }
 
     if (queryType && productType) {
-      if (queryType === productType) {
-        score += 7;
-      } else {
-        score -= 15;
-      }
+      score += queryType === productType ? 7 : -15;
     }
 
-    if (matchedNameWords >= 2) {
-      score += 2;
-    }
+    if (matchedNameWords >= 2) score += 2;
 
-    return {
-      product,
-      score,
-      matchedNameWords,
-      productType
-    };
+    return { product, score, matchedNameWords, productType };
   });
 
   return ranked
     .filter(item => item.score >= 7)
-    .sort((a, b) => {
-      if (b.score !== a.score) {
-        return b.score - a.score;
-      }
-
-      return b.matchedNameWords - a.matchedNameWords;
-    });
+    .sort((a, b) =>
+      b.score !== a.score
+        ? b.score - a.score
+        : b.matchedNameWords - a.matchedNameWords
+    );
 }
 
 function selectBestMatches(rankedProducts) {
-  if (!rankedProducts.length) {
-    return [];
-  }
+  if (!rankedProducts.length) return [];
 
   const best = rankedProducts[0];
 
@@ -614,6 +456,57 @@ function selectBestMatches(rankedProducts) {
     .filter(item => item.score >= best.score - 3)
     .slice(0, 4)
     .map(item => item.product);
+}
+
+function getRecommendationMatches(message, products) {
+  const tokens = getSearchTokens(message);
+  const requestedType = getProductType(tokens);
+  const needs = detectRecommendationNeeds(message);
+
+  const available = products.filter(product =>
+    product.is_in_stock === true
+  );
+
+  const typeMatches = requestedType
+    ? available.filter(product =>
+        getProductType(getSearchTokens(product.name)) === requestedType
+      )
+    : available;
+
+  const ranked = typeMatches.map(product => {
+    const searchableText = normalizeText(
+      cleanText(`${product.name || ""} ${product.description || ""}`)
+    );
+
+    const matchedNeeds = needs.filter(need =>
+      RECOMMENDATION_NEEDS[need].some(term =>
+        searchableText.includes(normalizeText(term))
+      )
+    );
+
+    return {
+      product,
+      matchedNeeds,
+      score: (requestedType ? 5 : 0) + matchedNeeds.length * 10
+    };
+  });
+
+  ranked.sort((a, b) => b.score - a.score);
+
+  const confirmedMatches = needs.length
+    ? ranked.filter(item => item.matchedNeeds.length > 0)
+    : ranked;
+
+  const candidates = confirmedMatches.length ? confirmedMatches : ranked;
+
+  return {
+    requestedType,
+    needs,
+    candidates: candidates.slice(0, 12).map(item => ({
+      product: item.product,
+      matchedNeeds: item.matchedNeeds
+    }))
+  };
 }
 
 // ======================================
@@ -664,9 +557,34 @@ module.exports = async function handler(req, res) {
     const question = message.trim();
     const currentSessionId = getSessionId(sessionId);
 
-    // استرجاع المحادثة السابقة.
+    // 1. استرجاع سجل المحادثة
     const history = await getChatHistory(currentSessionId);
 
+    // 2. تحليل سياق المحادثة
+    const conversationContext = analyzeConversationContext({
+      message: question,
+      history
+    });
+
+    // 3. فهم نية العميل ومشاعره
+    const customerIntent = detectCustomerIntent(question);
+
+    // 4. تحديد استراتيجية الرد
+    const responseStrategy = buildResponseStrategy(customerIntent);
+    const behaviorInstructions =
+      buildBehaviorInstructions(responseStrategy);
+
+    // 5. التحقق من طلبات السياسات
+    // لا توجد سياسات رسمية مربوطة حتى الآن.
+    const policyCheck = evaluatePolicyRequest({
+      message: question,
+      intent: customerIntent.intent,
+      policyData: {}
+    });
+
+    const policyInstructions = buildPolicyInstructions(policyCheck);
+
+    // 6. تشغيل عقل الوكيل الأساسي
     const brain = await think({
       message: question,
       history,
@@ -684,6 +602,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // 7. تحميل كتالوج المنتجات الحقيقي
     let products = brain.context?.storeKnowledge?.products || [];
 
     if (!Array.isArray(products)) {
@@ -693,6 +612,24 @@ module.exports = async function handler(req, res) {
     if (!products.length) {
       products = await getProducts();
     }
+
+    // 8. ربط المتابعة بآخر منتج معروف عند وجوده
+    const lastProductName =
+      conversationContext.isFollowUp &&
+      !conversationContext.isNewTopic
+        ? conversationContext.lastProduct
+        : null;
+
+    const contextualProduct = lastProductName
+      ? products.find(product =>
+          normalizeText(cleanText(product.name)) ===
+          normalizeText(cleanText(lastProductName))
+        )
+      : null;
+
+    const searchQuestion = contextualProduct
+      ? `${question} ${contextualProduct.name}`
+      : question;
 
     // ======================================
     // CHEAPER THAN PREVIOUS PRODUCT
@@ -720,10 +657,7 @@ module.exports = async function handler(req, res) {
         ? Number(priceMatch[1].replace(/,/g, ""))
         : null;
 
-      if (
-        referencePrice == null ||
-        !Number.isFinite(referencePrice)
-      ) {
+      if (referencePrice == null || !Number.isFinite(referencePrice)) {
         const answer =
           "تقصد أرخص من أنهي منتج؟ ابعتلي اسمه أو سعره وأنا أقارن لك.";
 
@@ -737,10 +671,7 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      const cheaperProducts = findCheapestBelow(
-        products,
-        referencePrice
-      );
+      const cheaperProducts = findCheapestBelow(products, referencePrice);
 
       const answer = cheaperProducts.length
         ? (
@@ -823,33 +754,27 @@ module.exports = async function handler(req, res) {
     const recommendationRequest =
       isRecommendationQuestion(question);
 
-    let recommendationData = null;
-
-    if (recommendationRequest) {
-      recommendationData = getRecommendationMatches(
-        question,
-        products
-      );
-    }
+    const recommendationData = recommendationRequest
+      ? getRecommendationMatches(searchQuestion, products)
+      : null;
 
     // ======================================
     // PRODUCT SEARCH
     // ======================================
 
-    const rankedProducts = findMatchingProducts(
-      question,
-      products
-    );
+    const rankedProducts = findMatchingProducts(searchQuestion, products);
+    let matchedProducts = selectBestMatches(rankedProducts);
 
-    const matchedProducts = selectBestMatches(rankedProducts);
+    // لو العميل قال "ده" أو "دي" والسياق حدد المنتج،
+    // نستخدم المنتج المعروف بدل إعادة البحث من الصفر.
+    if (!matchedProducts.length && contextualProduct) {
+      matchedProducts = [contextualProduct];
+    }
 
     if (
       !recommendationRequest &&
       matchedProducts.length > 0 &&
-      (
-        isDiscountQuestion(question) ||
-        isPriceQuestion(question)
-      )
+      (isDiscountQuestion(question) || isPriceQuestion(question))
     ) {
       let answer;
 
@@ -873,7 +798,7 @@ module.exports = async function handler(req, res) {
     }
 
     // ======================================
-    // PREPARE REAL STORE CATALOG
+    // REAL STORE CATALOG
     // ======================================
 
     const catalog = products.map(product => ({
@@ -889,7 +814,6 @@ module.exports = async function handler(req, res) {
       url: product.permalink || null
     }));
 
-    // المنتجات المرشحة للتوصية فقط.
     const recommendationCandidates = recommendationData
       ? recommendationData.candidates.map(item => ({
           id: item.product.woo_id,
@@ -920,6 +844,23 @@ module.exports = async function handler(req, res) {
       `${item.role === "user" ? "العميل" : "المساعد"}: ${item.content}`
     ).join("\n\n");
 
+    const contextText = JSON.stringify({
+      isFollowUp: conversationContext.isFollowUp,
+      isNewTopic: conversationContext.isNewTopic,
+      previousUserMessage: conversationContext.previousUserMessage,
+      previousAssistantMessage: conversationContext.previousAssistantMessage,
+      lastProduct: conversationContext.lastProduct,
+      contextInstruction: conversationContext.contextInstruction
+    });
+
+    const intentText = JSON.stringify({
+      intent: customerIntent.intent,
+      confidence: customerIntent.confidence,
+      emotion: customerIntent.emotion,
+      urgency: customerIntent.urgency,
+      requiresContext: customerIntent.requiresContext
+    });
+
     const recommendationInstructions = recommendationRequest
       ? `
 هذا الطلب هو طلب توصية بمنتج.
@@ -935,33 +876,68 @@ ${JSON.stringify({
 - رشّح منتجات من قائمة candidates فقط.
 - لا ترشّح منتجًا غير متوفر.
 - لا تخترع فوائد أو مكونات أو نتائج غير موجودة في اسم المنتج أو وصفه.
-- استخدم matchedNeeds كإشارة مساعدة فقط، ولا تعتبرها دليلًا طبيًا.
+- matchedNeeds إشارة مساعدة وليست دليلًا طبيًا.
 - إذا لم توجد منتجات تطابق احتياج العميل بوضوح، قل ذلك بصراحة.
-- إذا وجدت منتجات من نفس النوع لكن وصفها لا يؤكد تلبية الاحتياج، وضّح هذا للعميل.
 - لا تدّعِ أن منتجًا يعالج مرضًا أو مشكلة طبية.
 - اعرض السعر الحالي والخصم الحقيقي ورابط المنتج عند توفرها.
 - إذا كان طلب العميل غير واضح، اسأله سؤالًا واحدًا محددًا.
 - لا تعرض كل المنتجات؛ اختر حتى 3 منتجات مناسبة فقط.
-- اشرح باختصار سبب اختيار كل منتج اعتمادًا على البيانات المتاحة.
+- اشرح سبب اختيار كل منتج اعتمادًا على البيانات المتاحة.
 `
       : "";
 
     const prompt = `
 أنت Ask Logvidia، وكيل ذكاء اصطناعي متخصص في خدمة عملاء متجر Logvidia.
 
+مهمتك أن تتعامل مع العميل كموظف خدمة عملاء ذكي وطبيعي، وليس كمحرك بحث جامد.
+
 افهم العربية المصرية والفصحى والإنجليزية وأخطاء الكتابة.
 استخدم بيانات المنتجات الحقيقية فقط.
 
-ذاكرة المحادثة السابقة:
+==============================
+سياق المحادثة والذاكرة
+==============================
+
+سجل المحادثة:
 ${historyText || "لا توجد محادثة سابقة."}
 
-قواعد الذاكرة:
-- استخدم المحادثة السابقة لفهم الإشارات مثل: ده، دي، منه، منها، المنتج السابق.
-- اربط سؤال العميل الحالي بالسياق السابق عندما يكون ذلك منطقيًا.
-- لا تعتبر سؤالًا جديدًا متابعة إذا كان موضوعه مختلفًا.
-- لا تخترع تفاصيل غير موجودة في المحادثة أو بيانات المتجر.
+تحليل السياق:
+${contextText}
 
-قواعد الأسعار:
+قواعد الذاكرة:
+- افهم الإشارات مثل: ده، دي، دول، منه، منها، عليه، اللي فات.
+- اربط السؤال الحالي بالمنتج السابق فقط إذا كان السياق يدعم ذلك.
+- إذا بدأ العميل موضوعًا جديدًا، لا تخلط بين الموضوعين.
+- لا تخترع منتجًا سابقًا أو طلبًا أو معلومة غير موجودة في السجل.
+- إذا لم تستطع تحديد المقصود، اسأل العميل بوضوح.
+- لا تفترض أن آخر منتج ذُكر هو المقصود دائمًا.
+
+==============================
+فهم نية العميل
+==============================
+
+تحليل النية:
+${intentText}
+
+استراتيجية التعامل:
+${behaviorInstructions}
+
+==============================
+سياسات المتجر
+==============================
+
+${policyInstructions}
+
+قواعد السياسات:
+- لا تخترع سياسة شحن أو استرجاع أو استبدال أو دفع أو ضمان.
+- إذا لم تتوفر سياسة موثقة، وضّح للعميل أن التفاصيل تحتاج تأكيدًا من خدمة المتجر.
+- لا تقدم مدة أو تكلفة أو شرطًا غير موجود في البيانات الموثوقة.
+- لا تؤكد تنفيذ استرجاع أو إلغاء أو تعديل طلب.
+
+==============================
+قواعد المنتجات والأسعار
+==============================
+
 - currentPrice هو السعر الحالي الذي يدفعه العميل.
 - regularPrice هو السعر الأصلي قبل الخصم.
 - salePrice هو سعر التخفيض.
@@ -971,29 +947,35 @@ ${historyText || "لا توجد محادثة سابقة."}
 - لا تخترع سعرًا أو نسبة خصم.
 - لا تستخدم سعرًا من الذاكرة أو من خارج بيانات المتجر.
 - اذكر رابط المنتج عند توفره.
-
-قواعد البحث:
-- اهتم باسم المنتج ونوعه أكثر من وصفه.
 - لا تخلط بين الماسك والشامبو والبلسم والسيروم.
-- إذا وجدت منتجات متشابهة، اعرض الاختيارات واسأل العميل عن النوع المقصود.
-- لا تختر منتجًا عشوائيًا عند وجود أكثر من تطابق قوي.
+- إذا وجدت منتجات متشابهة، وضّح الفرق واسأل العميل عند الحاجة.
+- لا تختَر منتجًا عشوائيًا عند وجود أكثر من تطابق قوي.
+- لا تعتبر وصف المنتج دليلًا على علاج حالة طبية.
 
 ${recommendationInstructions}
 
-قواعد عامة:
-- أجب مباشرة وبأسلوب طبيعي وودود.
-- قارن المنتجات عند الطلب.
-- اسأل سؤالًا توضيحيًا عند عدم وضوح المنتج.
-- لا تدّعِ تنفيذ شراء أو تعديل أو حجز.
-- لا تكشف بيانات العملاء أو الفواتير أو المعلومات الإدارية.
+==============================
+قواعد خدمة العملاء
+==============================
+
+- تعامل بهدوء واحترام حتى لو كان العميل غاضبًا.
+- لا تلُم العميل ولا تجادله.
+- أظهر أنك فهمت المشكلة قبل تقديم الحل.
+- لا تكرر الترحيب في كل رسالة.
+- لا تستخدم ردودًا آلية طويلة بلا داعٍ.
+- لا تطلب بيانات شخصية حساسة داخل المحادثة.
+- لا تطلب كلمة مرور أو بيانات بطاقة دفع.
+- لا تكشف بيانات عملاء آخرين أو فواتير أو معلومات إدارية.
 - لا تدّعِ امتلاك صلاحيات صاحب المتجر.
-- أجب بلغة العميل.
+- لا تدّعِ تنفيذ شراء أو حجز أو تعديل أو إلغاء.
+- إذا احتاج الأمر تدخل موظف، قل ذلك بوضوح.
+- أجب بلغة العميل وبأسلوب طبيعي ومختصر ومفيد.
 - لا تعرض JSON أو معلومات تقنية.
 
-نوع الطلب:
+نوع الطلب الأساسي:
 ${brain.intent}
 
-بيانات المنتجات الحقيقية:
+كتالوج المتجر الحقيقي:
 ${JSON.stringify(catalog)}
 
 رسالة العميل الحالية:
@@ -1013,9 +995,7 @@ ${question}
         body: JSON.stringify({
           contents: [
             {
-              parts: [
-                { text: prompt }
-              ]
+              parts: [{ text: prompt }]
             }
           ],
           generationConfig: {
@@ -1023,7 +1003,8 @@ ${question}
             maxOutputTokens: 1800
           }
         }),
-      signal: AbortSignal.timeout(25000)      }
+        signal: AbortSignal.timeout(25000)
+      }
     );
 
     const result = await response.json();
@@ -1061,7 +1042,10 @@ ${question}
       sessionId: currentSessionId,
       intent: recommendationRequest
         ? "recommendations"
-        : brain.intent
+        : customerIntent.intent,
+      emotion: customerIntent.emotion,
+      isFollowUp: conversationContext.isFollowUp,
+      isNewTopic: conversationContext.isNewTopic
     });
 
   } catch (error) {
@@ -1074,7 +1058,7 @@ ${question}
     return res.status(timedOut ? 504 : 500).json({
       success: false,
       error: timedOut
-        ? "المساعد استغرق وقتًا طويلًا. جرّب سؤالًا أبسط."
+        ? "المساعد استغرق وقتًا طويلًا. جرّب مرة أخرى."
         : "حدث خطأ أثناء معالجة سؤالك."
     });
   }
