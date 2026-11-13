@@ -98,11 +98,9 @@
     <form id="ask-logvidia-form">
       <div class="ask-logvidia-brand">
         <i class="fa-solid fa-robot"></i>
-        <span>Ask Logvidia</span>
       </div>
-
       <input id="ask-logvidia-input"
-        placeholder="اكتب سؤالك..."
+        placeholder="Ask Logvidia..."
         autocomplete="off" maxlength="1500">
 
       <button id="ask-logvidia-send" type="submit">
