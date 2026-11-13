@@ -1,5 +1,5 @@
 
-const { supabaseRequest } = require("./_lib");
+const { supabaseRequest, getProducts } = require("./_lib");
 const { think, normalizeText } = require("./brain");
 const crypto = require("crypto");
 
@@ -107,6 +107,13 @@ function isPriceQuestion(message) {
   return /(?:بكام|كام|سعر|اسعار|price|how much)/.test(
     normalizeText(message)
   );
+}
+
+// اكتشاف طلب أرخص منتج.
+function isCheapestQuestion(message) {
+  const text = normalizeText(message);
+
+  return /ارخص|الاقل سعرا|اقل سعر|cheap|cheapest|lowest price/.test(text);
 }
 
 const SEARCH_ALIASES = {
@@ -276,7 +283,6 @@ function findMatchingProducts(message, products) {
       }
     }
 
-    // مكافأة العبارة الكاملة المتجاورة في اسم المنتج.
     if (searchWords.length >= 2) {
       for (
         let i = 0;
@@ -294,7 +300,6 @@ function findMatchingProducts(message, products) {
       }
     }
 
-    // إعطاء أولوية لنوع المنتج المطلوب.
     if (queryType && productType) {
       if (queryType === productType) {
         score += 7;
@@ -333,7 +338,6 @@ function selectBestMatches(rankedProducts) {
 
   const best = rankedProducts[0];
 
-  // نتيجة واحدة إذا كانت متقدمة بوضوح.
   if (
     rankedProducts.length === 1 ||
     best.score - rankedProducts[1].score >= 5
@@ -341,7 +345,6 @@ function selectBestMatches(rankedProducts) {
     return [best.product];
   }
 
-  // عرض المنتجات المتقاربة فقط.
   return rankedProducts
     .filter(item => item.score >= best.score - 3)
     .slice(0, 4)
@@ -422,13 +425,59 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const products = brain.context?.storeKnowledge?.products || [];
+    let products = brain.context?.storeKnowledge?.products || [];
 
     if (!Array.isArray(products)) {
       throw new Error("Invalid store knowledge.");
     }
 
-    // عرض جميع المنتجات.
+    // ======================================
+    // DIRECT: CHEAPEST PRODUCT
+    // ======================================
+
+    if (isCheapestQuestion(question)) {
+      if (!products.length) {
+        products = await getProducts();
+      }
+
+      const available = products
+        .filter(product =>
+          product.is_in_stock === true &&
+          product.price != null &&
+          Number.isFinite(Number(product.price)) &&
+          Number(product.price) > 0
+        )
+        .sort((a, b) => Number(a.price) - Number(b.price));
+
+      if (!available.length) {
+        return res.status(200).json({
+          success: true,
+          answer: "مش قادر أحدد أرخص منتج متاح حاليًا.",
+          sessionId: currentSessionId,
+          intent: "products"
+        });
+      }
+
+      const cheapest = available[0];
+
+      const answer =
+        `أرخص منتج متاح عندنا حاليًا هو:\n\n` +
+        formatProductAnswer(cheapest);
+
+      await saveChat(currentSessionId, question, answer);
+
+      return res.status(200).json({
+        success: true,
+        answer,
+        sessionId: currentSessionId,
+        intent: "products"
+      });
+    }
+
+    // ======================================
+    // ALL PRODUCTS
+    // ======================================
+
     if (isAllProductsQuestion(question)) {
       const availableProducts = products.filter(
         product => product.is_in_stock === true
@@ -452,7 +501,10 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // البحث الذكي عن المنتجات.
+    // ======================================
+    // PRODUCT SEARCH
+    // ======================================
+
     const rankedProducts = findMatchingProducts(question, products);
     const matchedProducts = selectBestMatches(rankedProducts);
 
@@ -484,7 +536,10 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // تجهيز بيانات المتجر لـ Gemini.
+    // ======================================
+    // GEMINI
+    // ======================================
+
     const catalog = products.map(product => ({
       id: product.woo_id,
       name: cleanText(product.name),
@@ -565,7 +620,7 @@ ${question}
             maxOutputTokens: 1800
           }
         }),
-        signal: AbortSignal.timeout(30000)
+        signal: AbortSignal.timeout(8000)
       }
     );
 
@@ -608,9 +663,15 @@ ${question}
   } catch (error) {
     console.error("Chat API error:", error.message);
 
-    return res.status(500).json({
+    const timedOut =
+      error.name === "TimeoutError" ||
+      error.name === "AbortError";
+
+    return res.status(timedOut ? 504 : 500).json({
       success: false,
-      error: "حدث خطأ أثناء معالجة سؤالك."
+      error: timedOut
+        ? "المساعد استغرق وقتًا طويلًا. جرّب سؤالًا أبسط."
+        : "حدث خطأ أثناء معالجة سؤالك."
     });
   }
 };
