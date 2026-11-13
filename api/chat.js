@@ -1023,8 +1023,7 @@ ${question}
             maxOutputTokens: 1800
           }
         }),
-        signal: AbortSignal.timeout(12000)
-      }
+      signal: AbortSignal.timeout(25000)      }
     );
 
     const result = await response.json();
