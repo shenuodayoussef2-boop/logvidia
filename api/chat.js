@@ -27,6 +27,31 @@ function getSessionId(sessionId) {
   return "session-" + crypto.randomUUID();
 }
 
+async function getChatHistory(sessionId) {
+  try {
+    const rows = await supabaseRequest(
+      `chat_logs?select=question,answer,created_at&session_id=eq.${encodeURIComponent(sessionId)}&order=created_at.desc&limit=10`,
+      { method: "GET" }
+    );
+
+    if (!Array.isArray(rows)) return [];
+
+    return rows.reverse().flatMap(row => [
+      {
+        role: "user",
+        content: row.question
+      },
+      {
+        role: "assistant",
+        content: row.answer
+      }
+    ]);
+  } catch (error) {
+    console.error("Chat history retrieval failed:", error.message);
+    return [];
+  }
+}
+
 async function saveChat(sessionId, question, answer) {
   try {
     await supabaseRequest("chat_logs", {
@@ -109,11 +134,16 @@ function isPriceQuestion(message) {
   );
 }
 
-// اكتشاف طلب أرخص منتج.
 function isCheapestQuestion(message) {
   const text = normalizeText(message);
 
   return /ارخص|الاقل سعرا|اقل سعر|cheap|cheapest|lowest price/.test(text);
+}
+
+function isCheaperThanPreviousQuestion(message) {
+  const text = normalizeText(message);
+
+  return /(?:ارخص منه|ارخص منها|اقل منه|اقل منها|ارخص من ده|ارخص من دي|cheaper than that)/.test(text);
 }
 
 const SEARCH_ALIASES = {
@@ -380,6 +410,18 @@ function formatProductAnswer(product) {
   return answer;
 }
 
+function findCheapestBelow(products, referencePrice) {
+  return products
+    .filter(product =>
+      product.is_in_stock === true &&
+      product.price != null &&
+      Number.isFinite(Number(product.price)) &&
+      Number(product.price) > 0 &&
+      Number(product.price) < referencePrice
+    )
+    .sort((a, b) => Number(a.price) - Number(b.price));
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -408,9 +450,12 @@ module.exports = async function handler(req, res) {
     const question = message.trim();
     const currentSessionId = getSessionId(sessionId);
 
+    // استرجاع المحادثة السابقة لنفس الجلسة.
+    const history = await getChatHistory(currentSessionId);
+
     const brain = await think({
       message: question,
-      history: [],
+      history,
       role: "customer"
     });
 
@@ -431,15 +476,79 @@ module.exports = async function handler(req, res) {
       throw new Error("Invalid store knowledge.");
     }
 
+    if (!products.length) {
+      products = await getProducts();
+    }
+
+    // ======================================
+    // CHEAPER THAN PREVIOUS PRODUCT
+    // ======================================
+
+    if (isCheaperThanPreviousQuestion(question)) {
+      const previousAssistantMessage = [...history]
+        .reverse()
+        .find(item => item.role === "assistant");
+
+      const previousUserMessage = [...history]
+        .reverse()
+        .find(item => item.role === "user");
+
+      const previousText = [
+        previousAssistantMessage?.content || "",
+        previousUserMessage?.content || ""
+      ].join(" ");
+
+      const priceMatch = previousText.match(
+        /(?:السعر الحالي|السعر بعد الخصم|السعر)\s*:\s*([\d,.]+)/
+      );
+
+      const referencePrice = priceMatch
+        ? Number(priceMatch[1].replace(/,/g, ""))
+        : null;
+
+      if (referencePrice == null || !Number.isFinite(referencePrice)) {
+        const answer =
+          "تقصد أرخص من أنهي منتج؟ ابعتلي اسمه أو سعره وأنا أقارن لك.";
+
+        await saveChat(currentSessionId, question, answer);
+
+        return res.status(200).json({
+          success: true,
+          answer,
+          sessionId: currentSessionId,
+          intent: "products"
+        });
+      }
+
+      const cheaperProducts = findCheapestBelow(
+        products,
+        referencePrice
+      );
+
+      const answer = cheaperProducts.length
+        ? (
+            `أيوه، لقيت منتجات أرخص من ${formatMoney(referencePrice)}:\n\n` +
+            cheaperProducts.slice(0, 5)
+              .map(formatProductAnswer)
+              .join("\n\n")
+          )
+        : `لا، مفيش منتج متاح بسعر أقل من ${formatMoney(referencePrice)} حاليًا.`;
+
+      await saveChat(currentSessionId, question, answer);
+
+      return res.status(200).json({
+        success: true,
+        answer,
+        sessionId: currentSessionId,
+        intent: "products"
+      });
+    }
+
     // ======================================
     // DIRECT: CHEAPEST PRODUCT
     // ======================================
 
     if (isCheapestQuestion(question)) {
-      if (!products.length) {
-        products = await getProducts();
-      }
-
       const available = products
         .filter(product =>
           product.is_in_stock === true &&
@@ -449,20 +558,9 @@ module.exports = async function handler(req, res) {
         )
         .sort((a, b) => Number(a.price) - Number(b.price));
 
-      if (!available.length) {
-        return res.status(200).json({
-          success: true,
-          answer: "مش قادر أحدد أرخص منتج متاح حاليًا.",
-          sessionId: currentSessionId,
-          intent: "products"
-        });
-      }
-
-      const cheapest = available[0];
-
-      const answer =
-        `أرخص منتج متاح عندنا حاليًا هو:\n\n` +
-        formatProductAnswer(cheapest);
+      const answer = available.length
+        ? `أرخص منتج متاح عندنا حاليًا هو:\n\n${formatProductAnswer(available[0])}`
+        : "مش قادر أحدد أرخص منتج متاح حاليًا.";
 
       await saveChat(currentSessionId, question, answer);
 
@@ -537,7 +635,7 @@ module.exports = async function handler(req, res) {
     }
 
     // ======================================
-    // GEMINI
+    // GEMINI WITH CONVERSATION MEMORY
     // ======================================
 
     const catalog = products.map(product => ({
@@ -560,11 +658,24 @@ module.exports = async function handler(req, res) {
       throw new Error("Gemini configuration is missing.");
     }
 
+    const historyText = history.map(item =>
+      `${item.role === "user" ? "العميل" : "المساعد"}: ${item.content}`
+    ).join("\n\n");
+
     const prompt = `
 أنت Ask Logvidia، وكيل ذكاء اصطناعي متخصص في خدمة عملاء متجر Logvidia.
 
 افهم العربية المصرية والفصحى والإنجليزية وأخطاء الكتابة.
 استخدم بيانات المنتجات الحقيقية فقط.
+
+ذاكرة المحادثة السابقة:
+${historyText || "لا توجد محادثة سابقة."}
+
+قواعد الذاكرة:
+- استخدم المحادثة السابقة لفهم الإشارات مثل: ده، دي، منه، منها، المنتج السابق.
+- اربط سؤال العميل الحالي بالسياق السابق عندما يكون ذلك منطقيًا.
+- لا تعتبر سؤالًا جديدًا متابعة إذا كان موضوعه مختلفًا.
+- لا تخترع تفاصيل غير موجودة في المحادثة أو بيانات المتجر.
 
 قواعد الأسعار:
 - currentPrice هو السعر الحالي الذي يدفعه العميل.
@@ -599,7 +710,7 @@ ${brain.intent}
 بيانات المنتجات:
 ${JSON.stringify(catalog)}
 
-رسالة العميل:
+رسالة العميل الحالية:
 ${question}
 
 اكتب إجابة دقيقة ومفيدة.
@@ -620,7 +731,7 @@ ${question}
             maxOutputTokens: 1800
           }
         }),
-        signal: AbortSignal.timeout(8000)
+        signal: AbortSignal.timeout(12000)
       }
     );
 
