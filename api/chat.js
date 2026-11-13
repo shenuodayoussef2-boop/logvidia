@@ -109,7 +109,6 @@ function isPriceQuestion(message) {
   );
 }
 
-// توحيد أسماء المنتجات بين العربي والإنجليزي.
 const SEARCH_ALIASES = {
   "لوريال": "loreal",
   "لوريل": "loreal",
@@ -169,7 +168,6 @@ function getProductType(tokens) {
   return null;
 }
 
-// حساب التشابه لدعم أخطاء الكتابة البسيطة.
 function levenshteinDistance(a, b) {
   if (a === b) return 0;
   if (!a.length) return b.length;
@@ -204,7 +202,6 @@ function tokenSimilarity(queryToken, productTokens) {
     return 1;
   }
 
-  // نسمح بتصحيح أخطاء بسيطة فقط في الكلمات الطويلة.
   if (queryToken.length < 4) {
     return 0;
   }
@@ -235,7 +232,6 @@ function tokenSimilarity(queryToken, productTokens) {
   return best;
 }
 
-// ترتيب المنتجات حسب تطابق السؤال مع الاسم والنوع.
 function findMatchingProducts(message, products) {
   const queryTokens = getSearchTokens(message);
 
@@ -280,7 +276,25 @@ function findMatchingProducts(message, products) {
       }
     }
 
-    // تطابق نوع المنتج مهم جدًا.
+    // مكافأة العبارة الكاملة المتجاورة في اسم المنتج.
+    if (searchWords.length >= 2) {
+      for (
+        let i = 0;
+        i <= nameTokens.length - searchWords.length;
+        i++
+      ) {
+        const phrase = nameTokens
+          .slice(i, i + searchWords.length)
+          .join(" ");
+
+        if (phrase === searchWords.join(" ")) {
+          score += 15;
+          break;
+        }
+      }
+    }
+
+    // إعطاء أولوية لنوع المنتج المطلوب.
     if (queryType && productType) {
       if (queryType === productType) {
         score += 7;
@@ -289,7 +303,6 @@ function findMatchingProducts(message, products) {
       }
     }
 
-    // الاسم أهم من الوصف.
     if (matchedNameWords >= 2) {
       score += 2;
     }
@@ -313,24 +326,24 @@ function findMatchingProducts(message, products) {
     });
 }
 
-// تحديد هل نعرض منتجًا واحدًا أم اختيارات متعددة.
 function selectBestMatches(rankedProducts) {
   if (!rankedProducts.length) {
     return [];
   }
 
-  const bestScore = rankedProducts[0].score;
+  const best = rankedProducts[0];
 
-  // نعرض المنتجات المتقاربة في درجة التطابق فقط.
-  const closeMatches = rankedProducts.filter(item =>
-    item.score >= bestScore - 3
-  );
-
-  if (closeMatches.length === 1) {
-    return [rankedProducts[0].product];
+  // نتيجة واحدة إذا كانت متقدمة بوضوح.
+  if (
+    rankedProducts.length === 1 ||
+    best.score - rankedProducts[1].score >= 5
+  ) {
+    return [best.product];
   }
 
-  return closeMatches
+  // عرض المنتجات المتقاربة فقط.
+  return rankedProducts
+    .filter(item => item.score >= best.score - 3)
     .slice(0, 4)
     .map(item => item.product);
 }
@@ -415,7 +428,7 @@ module.exports = async function handler(req, res) {
       throw new Error("Invalid store knowledge.");
     }
 
-    // عرض جميع المنتجات المتاحة.
+    // عرض جميع المنتجات.
     if (isAllProductsQuestion(question)) {
       const availableProducts = products.filter(
         product => product.is_in_stock === true
@@ -439,7 +452,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // البحث الذكي عن المنتج.
+    // البحث الذكي عن المنتجات.
     const rankedProducts = findMatchingProducts(question, products);
     const matchedProducts = selectBestMatches(rankedProducts);
 
