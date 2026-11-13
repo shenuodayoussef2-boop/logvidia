@@ -103,44 +103,235 @@ function isDiscountQuestion(message) {
   return /(?:خصم|تخفيض|تخفيضات|عروض|عرض|قبل الخصم|بعد الخصم|discount|sale|offer|offers)/.test(text);
 }
 
-function findMatchingProducts(message, products) {
-  const text = normalizeText(message);
+function isPriceQuestion(message) {
+  return /(?:بكام|كام|سعر|اسعار|price|how much)/.test(
+    normalizeText(message)
+  );
+}
 
-  const words = text
+// توحيد أسماء المنتجات بين العربي والإنجليزي.
+const SEARCH_ALIASES = {
+  "لوريال": "loreal",
+  "لوريل": "loreal",
+  "اوريل": "loreal",
+  "oreal": "loreal",
+  "ماسك": "mask",
+  "ماسكات": "mask",
+  "شامبو": "shampoo",
+  "شامبوهات": "shampoo",
+  "بلسم": "conditioner",
+  "سيروم": "serum",
+  "زيت": "oil",
+  "كريم": "cream",
+  "كونديشنر": "conditioner",
+  "سيرم": "serum"
+};
+
+const STOP_WORDS = new Set([
+  "بكام", "كام", "سعر", "اسعار", "عندكم", "عاوز",
+  "عايز", "محتاج", "موجود", "متاح", "المنتج",
+  "منتج", "المنتجات", "لو", "سمحت", "من", "في",
+  "على", "عليه", "عليها", "قبل", "بعد", "الخصم",
+  "خصم", "تخفيض", "تخفيضات", "عروض", "عرض",
+  "عندكو", "ممكن", "ايه", "هو", "هي", "هل",
+  "the", "price", "how", "much", "is", "what",
+  "discount", "sale", "please", "do", "you",
+  "have", "for", "me", "show", "find"
+]);
+
+const PRODUCT_TYPES = {
+  mask: ["mask"],
+  shampoo: ["shampoo"],
+  conditioner: ["conditioner"],
+  serum: ["serum"],
+  oil: ["oil"],
+  cream: ["cream"]
+};
+
+function canonicalToken(word) {
+  return SEARCH_ALIASES[word] || word;
+}
+
+function getSearchTokens(value = "") {
+  return normalizeText(cleanText(value))
     .split(/\s+/)
+    .map(canonicalToken)
     .filter(word => word.length >= 2);
+}
 
-  const ignored = new Set([
-    "بكام", "كام", "سعر", "اسعار", "عندكم", "عاوز",
-    "عايز", "محتاج", "موجود", "متاح", "المنتج",
-    "منتج", "المنتجات", "لو", "سمحت", "من", "في",
-    "على", "قبل", "بعد", "الخصم", "خصم", "تخفيض",
-    "تخفيضات", "عروض", "عرض", "عندكو", "ممكن",
-    "ايه", "هو", "هي", "the", "price", "how",
-    "much", "is", "what", "discount", "sale"
-  ]);
+function getProductType(tokens) {
+  for (const [type, aliases] of Object.entries(PRODUCT_TYPES)) {
+    if (tokens.some(token => aliases.includes(token))) {
+      return type;
+    }
+  }
 
-  const searchWords = words.filter(word => !ignored.has(word));
+  return null;
+}
 
-  if (!searchWords.length) return [];
+// حساب التشابه لدعم أخطاء الكتابة البسيطة.
+function levenshteinDistance(a, b) {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
 
-  return products
-    .map(product => {
-      const name = normalizeText(cleanText(product.name));
-      const description = normalizeText(cleanText(product.description || ""));
+  let previous = Array.from(
+    { length: b.length + 1 },
+    (_, index) => index
+  );
 
-      let score = 0;
+  for (let i = 1; i <= a.length; i++) {
+    const current = [i];
 
-      for (const word of searchWords) {
-        if (name.includes(word)) score += word.length >= 5 ? 4 : 2;
-        else if (description.includes(word)) score += 1;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+
+      current[j] = Math.min(
+        current[j - 1] + 1,
+        previous[j] + 1,
+        previous[j - 1] + cost
+      );
+    }
+
+    previous = current;
+  }
+
+  return previous[b.length];
+}
+
+function tokenSimilarity(queryToken, productTokens) {
+  if (productTokens.includes(queryToken)) {
+    return 1;
+  }
+
+  // نسمح بتصحيح أخطاء بسيطة فقط في الكلمات الطويلة.
+  if (queryToken.length < 4) {
+    return 0;
+  }
+
+  let best = 0;
+
+  for (const productToken of productTokens) {
+    if (Math.abs(queryToken.length - productToken.length) > 2) {
+      continue;
+    }
+
+    const distance = levenshteinDistance(
+      queryToken,
+      productToken
+    );
+
+    const allowedDistance =
+      queryToken.length >= 8 ? 2 : 1;
+
+    if (distance <= allowedDistance) {
+      const similarity =
+        1 - distance / Math.max(queryToken.length, productToken.length);
+
+      best = Math.max(best, similarity);
+    }
+  }
+
+  return best;
+}
+
+// ترتيب المنتجات حسب تطابق السؤال مع الاسم والنوع.
+function findMatchingProducts(message, products) {
+  const queryTokens = getSearchTokens(message);
+
+  const searchWords = queryTokens.filter(
+    word => !STOP_WORDS.has(word)
+  );
+
+  const queryType = getProductType(queryTokens);
+
+  if (!searchWords.length) {
+    return [];
+  }
+
+  const ranked = products.map(product => {
+    const nameTokens = getSearchTokens(product.name);
+    const descriptionTokens = getSearchTokens(
+      product.description || ""
+    );
+
+    const productType = getProductType(nameTokens);
+
+    let score = 0;
+    let matchedNameWords = 0;
+
+    for (const word of searchWords) {
+      const nameSimilarity = tokenSimilarity(word, nameTokens);
+      const descriptionSimilarity = tokenSimilarity(
+        word,
+        descriptionTokens
+      );
+
+      if (nameSimilarity === 1) {
+        score += word.length >= 5 ? 6 : 4;
+        matchedNameWords++;
+      } else if (nameSimilarity >= 0.75) {
+        score += 3.5;
+        matchedNameWords++;
+      } else if (descriptionSimilarity === 1) {
+        score += 0.8;
+      } else if (descriptionSimilarity >= 0.75) {
+        score += 0.4;
+      }
+    }
+
+    // تطابق نوع المنتج مهم جدًا.
+    if (queryType && productType) {
+      if (queryType === productType) {
+        score += 7;
+      } else {
+        score -= 15;
+      }
+    }
+
+    // الاسم أهم من الوصف.
+    if (matchedNameWords >= 2) {
+      score += 2;
+    }
+
+    return {
+      product,
+      score,
+      matchedNameWords,
+      productType
+    };
+  });
+
+  return ranked
+    .filter(item => item.score >= 7)
+    .sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
       }
 
-      return { product, score };
-    })
-    .filter(item => item.score >= 2)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5)
+      return b.matchedNameWords - a.matchedNameWords;
+    });
+}
+
+// تحديد هل نعرض منتجًا واحدًا أم اختيارات متعددة.
+function selectBestMatches(rankedProducts) {
+  if (!rankedProducts.length) {
+    return [];
+  }
+
+  const bestScore = rankedProducts[0].score;
+
+  // نعرض المنتجات المتقاربة في درجة التطابق فقط.
+  const closeMatches = rankedProducts.filter(item =>
+    item.score >= bestScore - 3
+  );
+
+  if (closeMatches.length === 1) {
+    return [rankedProducts[0].product];
+  }
+
+  return closeMatches
+    .slice(0, 4)
     .map(item => item.product);
 }
 
@@ -224,7 +415,7 @@ module.exports = async function handler(req, res) {
       throw new Error("Invalid store knowledge.");
     }
 
-    // عرض جميع المنتجات مع أسعارها وخصوماتها.
+    // عرض جميع المنتجات المتاحة.
     if (isAllProductsQuestion(question)) {
       const availableProducts = products.filter(
         product => product.is_in_stock === true
@@ -248,22 +439,27 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // إجابة مباشرة عن سعر المنتج أو التخفيض من قاعدة البيانات.
-    const matchedProducts = findMatchingProducts(question, products);
+    // البحث الذكي عن المنتج.
+    const rankedProducts = findMatchingProducts(question, products);
+    const matchedProducts = selectBestMatches(rankedProducts);
 
     if (
       matchedProducts.length > 0 &&
       (
         isDiscountQuestion(question) ||
-        /(?:بكام|كام|سعر|اسعار|price|how much)/.test(normalizeText(question))
+        isPriceQuestion(question)
       )
     ) {
-      const answer = matchedProducts.length === 1
-        ? formatProductAnswer(matchedProducts[0])
-        : (
-            "لقيت المنتجات دي الأقرب لسؤالك:\n\n" +
-            matchedProducts.map(formatProduct).join("\n\n")
-          );
+      let answer;
+
+      if (matchedProducts.length === 1) {
+        answer = formatProductAnswer(matchedProducts[0]);
+      } else {
+        answer =
+          "لقيت أكتر من منتج قريب من وصفك. تقصد أنهي واحد؟\n\n" +
+          matchedProducts.map(formatProduct).join("\n\n") +
+          "\n\nاكتب اسم المنتج أو نوعه عشان أحدد لك السعر والخصم بدقة.";
+      }
 
       await saveChat(currentSessionId, question, answer);
 
@@ -312,6 +508,12 @@ module.exports = async function handler(req, res) {
 - لا تخترع سعرًا أو نسبة خصم.
 - لا تستخدم سعرًا من الذاكرة أو من خارج بيانات المتجر.
 - اذكر رابط المنتج عند توفره.
+
+قواعد البحث:
+- اهتم باسم المنتج ونوعه أكثر من وصفه.
+- لا تخلط بين الماسك والشامبو والبلسم والسيروم.
+- إذا وجدت منتجات متشابهة، اعرض الاختيارات واسأل العميل عن النوع المقصود.
+- لا تختر منتجًا عشوائيًا عند وجود أكثر من تطابق قوي.
 
 قواعد عامة:
 - أجب مباشرة وبأسلوب طبيعي وودود.
