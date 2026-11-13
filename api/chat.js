@@ -1,20 +1,30 @@
 
 const { supabaseRequest, getProducts } = require("./_lib");
 const { think, normalizeText } = require("./brain");
+
 const {
   detectCustomerIntent
 } = require("./intelligence/intent");
+
 const {
   buildResponseStrategy,
   buildBehaviorInstructions
 } = require("./intelligence/response-strategy");
+
 const {
   evaluatePolicyRequest,
   buildPolicyInstructions
 } = require("./intelligence/policy-guard");
+
 const {
   analyzeConversationContext
 } = require("./intelligence/context-memory");
+
+const {
+  buildCustomerServicePlan,
+  buildCustomerServiceInstructions
+} = require("./intelligence/customer-service");
+
 const crypto = require("crypto");
 
 // ======================================
@@ -569,13 +579,21 @@ module.exports = async function handler(req, res) {
     // 3. فهم نية العميل ومشاعره
     const customerIntent = detectCustomerIntent(question);
 
-    // 4. تحديد استراتيجية الرد
+    // 4. تحليل خدمة العملاء
+    const customerServicePlan = buildCustomerServicePlan({
+      message: question,
+      emotion: customerIntent.emotion
+    });
+
+    const customerServiceInstructions =
+      buildCustomerServiceInstructions(customerServicePlan);
+
+    // 5. تحديد استراتيجية الرد
     const responseStrategy = buildResponseStrategy(customerIntent);
     const behaviorInstructions =
       buildBehaviorInstructions(responseStrategy);
 
-    // 5. التحقق من طلبات السياسات
-    // لا توجد سياسات رسمية مربوطة حتى الآن.
+    // 6. التحقق من طلبات السياسات
     const policyCheck = evaluatePolicyRequest({
       message: question,
       intent: customerIntent.intent,
@@ -584,7 +602,7 @@ module.exports = async function handler(req, res) {
 
     const policyInstructions = buildPolicyInstructions(policyCheck);
 
-    // 6. تشغيل عقل الوكيل الأساسي
+    // 7. تشغيل عقل الوكيل الأساسي
     const brain = await think({
       message: question,
       history,
@@ -602,7 +620,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 7. تحميل كتالوج المنتجات الحقيقي
+    // 8. تحميل كتالوج المنتجات الحقيقي
     let products = brain.context?.storeKnowledge?.products || [];
 
     if (!Array.isArray(products)) {
@@ -613,7 +631,7 @@ module.exports = async function handler(req, res) {
       products = await getProducts();
     }
 
-    // 8. ربط المتابعة بآخر منتج معروف عند وجوده
+    // 9. ربط المتابعة بآخر منتج معروف
     const lastProductName =
       conversationContext.isFollowUp &&
       !conversationContext.isNewTopic
@@ -765,8 +783,6 @@ module.exports = async function handler(req, res) {
     const rankedProducts = findMatchingProducts(searchQuestion, products);
     let matchedProducts = selectBestMatches(rankedProducts);
 
-    // لو العميل قال "ده" أو "دي" والسياق حدد المنتج،
-    // نستخدم المنتج المعروف بدل إعادة البحث من الصفر.
     if (!matchedProducts.length && contextualProduct) {
       matchedProducts = [contextualProduct];
     }
@@ -830,7 +846,7 @@ module.exports = async function handler(req, res) {
       : [];
 
     // ======================================
-    // GEMINI
+    // GEMINI CONFIGURATION
     // ======================================
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -861,6 +877,13 @@ module.exports = async function handler(req, res) {
       requiresContext: customerIntent.requiresContext
     });
 
+    const customerServiceText = JSON.stringify({
+      type: customerServicePlan.type,
+      severity: customerServicePlan.severity,
+      tone: customerServicePlan.tone,
+      requiresHuman: customerServicePlan.requiresHuman
+    });
+
     const recommendationInstructions = recommendationRequest
       ? `
 هذا الطلب هو طلب توصية بمنتج.
@@ -885,6 +908,10 @@ ${JSON.stringify({
 - اشرح سبب اختيار كل منتج اعتمادًا على البيانات المتاحة.
 `
       : "";
+
+    // ======================================
+    // COMPLETE AI PROMPT
+    // ======================================
 
     const prompt = `
 أنت Ask Logvidia، وكيل ذكاء اصطناعي متخصص في خدمة عملاء متجر Logvidia.
@@ -923,6 +950,27 @@ ${intentText}
 ${behaviorInstructions}
 
 ==============================
+نظام إدارة خدمة العملاء
+==============================
+
+تحليل حالة العميل:
+${customerServiceText}
+
+تعليمات التعامل:
+${customerServiceInstructions}
+
+قواعد إلزامية:
+- إذا كان العميل يشتكي، افهم المشكلة أولًا ثم اقترح الخطوة المناسبة.
+- إذا كان يعترض على السعر، وضح الأسعار والبدائل الحقيقية دون ضغط.
+- إذا طلب موظفًا بشريًا، لا تتجاهل طلبه.
+- لا تدّعِ تحويل المحادثة إلى موظف دون وجود نظام تحويل فعلي.
+- لا تدّعِ تنفيذ استرجاع أو تعويض أو استبدال.
+- لا تطلب كلمات مرور أو بيانات بطاقات الدفع.
+- لا تطلب معلومات شخصية غير ضرورية.
+- إذا كانت الشكوى خطيرة، وضح أن الحالة تحتاج مراجعة فريق المتجر.
+- حافظ على أسلوب طبيعي ومختصر ومحترم.
+
+==============================
 سياسات المتجر
 ==============================
 
@@ -955,22 +1003,14 @@ ${policyInstructions}
 ${recommendationInstructions}
 
 ==============================
-قواعد خدمة العملاء
+قواعد عامة
 ==============================
 
-- تعامل بهدوء واحترام حتى لو كان العميل غاضبًا.
-- لا تلُم العميل ولا تجادله.
-- أظهر أنك فهمت المشكلة قبل تقديم الحل.
-- لا تكرر الترحيب في كل رسالة.
-- لا تستخدم ردودًا آلية طويلة بلا داعٍ.
-- لا تطلب بيانات شخصية حساسة داخل المحادثة.
-- لا تطلب كلمة مرور أو بيانات بطاقة دفع.
-- لا تكشف بيانات عملاء آخرين أو فواتير أو معلومات إدارية.
 - لا تدّعِ امتلاك صلاحيات صاحب المتجر.
+- لا تكشف بيانات عملاء آخرين أو فواتير أو معلومات إدارية.
 - لا تدّعِ تنفيذ شراء أو حجز أو تعديل أو إلغاء.
-- إذا احتاج الأمر تدخل موظف، قل ذلك بوضوح.
-- أجب بلغة العميل وبأسلوب طبيعي ومختصر ومفيد.
 - لا تعرض JSON أو معلومات تقنية.
+- أجب بلغة العميل وبأسلوب طبيعي ومختصر ومفيد.
 
 نوع الطلب الأساسي:
 ${brain.intent}
@@ -983,6 +1023,10 @@ ${question}
 
 اكتب إجابة دقيقة ومفيدة.
 `;
+
+    // ======================================
+    // GEMINI REQUEST
+    // ======================================
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
@@ -1034,6 +1078,10 @@ ${question}
       throw new Error("Gemini returned an empty response.");
     }
 
+    // ======================================
+    // SAVE CONVERSATION
+    // ======================================
+
     await saveChat(currentSessionId, question, answer);
 
     return res.status(200).json({
@@ -1044,6 +1092,11 @@ ${question}
         ? "recommendations"
         : customerIntent.intent,
       emotion: customerIntent.emotion,
+      customerService: {
+        type: customerServicePlan.type,
+        severity: customerServicePlan.severity,
+        requiresHuman: customerServicePlan.requiresHuman
+      },
       isFollowUp: conversationContext.isFollowUp,
       isNewTopic: conversationContext.isNewTopic
     });
