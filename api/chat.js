@@ -3,6 +3,10 @@ const { supabaseRequest, getProducts } = require("./_lib");
 const { think, normalizeText } = require("./brain");
 const crypto = require("crypto");
 
+// ======================================
+// TEXT HELPERS
+// ======================================
+
 function cleanText(value = "") {
   return String(value)
     .replace(/<[^>]*>/g, " ")
@@ -26,6 +30,10 @@ function getSessionId(sessionId) {
 
   return "session-" + crypto.randomUUID();
 }
+
+// ======================================
+// CHAT MEMORY
+// ======================================
 
 async function getChatHistory(sessionId) {
   try {
@@ -56,7 +64,9 @@ async function saveChat(sessionId, question, answer) {
   try {
     await supabaseRequest("chat_logs", {
       method: "POST",
-      headers: { Prefer: "return=minimal" },
+      headers: {
+        Prefer: "return=minimal"
+      },
       body: JSON.stringify({
         session_id: sessionId,
         question,
@@ -67,6 +77,10 @@ async function saveChat(sessionId, question, answer) {
     console.error("Chat logging failed:", error.message);
   }
 }
+
+// ======================================
+// PRODUCT FORMATTING
+// ======================================
 
 function formatMoney(value, currency = "EGP") {
   if (value == null || !Number.isFinite(Number(value))) {
@@ -91,7 +105,9 @@ function formatProduct(product, index) {
   let pricing = `السعر: ${formatMoney(product.price, currency)}`;
 
   if (discounted) {
-    const saved = Number(product.regular_price) - Number(product.price);
+    const saved =
+      Number(product.regular_price) - Number(product.price);
+
     const percent = product.discount_percent ||
       Math.round(saved / Number(product.regular_price) * 100);
 
@@ -109,6 +125,43 @@ function formatProduct(product, index) {
     `رابط المنتج: ${product.permalink || "غير متاح"}`
   );
 }
+
+function formatProductAnswer(product) {
+  const currency = product.currency_code || "EGP";
+  const discounted = hasDiscount(product);
+
+  let answer = `**${cleanText(product.name)}**\n\n`;
+
+  if (discounted) {
+    const saved =
+      Number(product.regular_price) - Number(product.price);
+
+    const percent = product.discount_percent ||
+      Math.round(saved / Number(product.regular_price) * 100);
+
+    answer +=
+      `السعر قبل الخصم: ${formatMoney(product.regular_price, currency)}\n` +
+      `السعر بعد الخصم: ${formatMoney(product.price, currency)}\n` +
+      `الخصم: ${percent}%\n` +
+      `وفرت: ${formatMoney(saved, currency)}\n\n`;
+  } else {
+    answer +=
+      `السعر الحالي: ${formatMoney(product.price, currency)}\n\n`;
+  }
+
+  answer +=
+    `الحالة: ${product.is_in_stock ? "متوفر حاليًا" : "غير متوفر حاليًا"}`;
+
+  if (product.permalink) {
+    answer += `\n\nرابط المنتج: ${product.permalink}`;
+  }
+
+  return answer;
+}
+
+// ======================================
+// QUESTION DETECTION
+// ======================================
 
 function isAllProductsQuestion(message) {
   const text = normalizeText(message);
@@ -145,6 +198,186 @@ function isCheaperThanPreviousQuestion(message) {
 
   return /(?:ارخص منه|ارخص منها|اقل منه|اقل منها|ارخص من ده|ارخص من دي|cheaper than that)/.test(text);
 }
+
+// ======================================
+// SMART RECOMMENDATION SYSTEM
+// ======================================
+
+function isRecommendationQuestion(message) {
+  const text = normalizeText(message);
+
+  return /(?:رشح|ترشح|رشحلي|ترشيح|انسب|مناسب|مناسبه|افضل|احسن|عايز|عاوز|محتاج|بدور على|اقترح|recommend|suggest|looking for|best for)/.test(text);
+}
+
+const RECOMMENDATION_NEEDS = {
+  dry_hair: [
+    "جاف",
+    "جفاف",
+    "ناشف",
+    "ناشفه",
+    "dry hair",
+    "dry",
+    "dehydrated hair"
+  ],
+
+  damaged_hair: [
+    "تالف",
+    "تالفه",
+    "تلف",
+    "متضرر",
+    "متضرره",
+    " damaged",
+    "damaged hair",
+    "repair"
+  ],
+
+  frizzy_hair: [
+    "هيشان",
+    "هايش",
+    "منفوش",
+    "frizzy",
+    "frizz"
+  ],
+
+  hair_fall: [
+    "تساقط",
+    "بيسقط",
+    "تساقط الشعر",
+    "hair fall",
+    "hair loss"
+  ],
+
+  oily_hair: [
+    "دهني",
+    "دهنيه",
+    "دهون",
+    "زيتي",
+    "oily hair",
+    "oily"
+  ],
+
+  dandruff: [
+    "قشره",
+    "قشره الشعر",
+    "قشرة",
+    "dandruff"
+  ],
+
+  split_ends: [
+    "تقصف",
+    "متقصف",
+    "اطراف متقصفه",
+    "split ends"
+  ],
+
+  weak_hair: [
+    "ضعيف",
+    "ضعيفه",
+    "ضعف الشعر",
+    "weak hair",
+    "strengthen hair"
+  ],
+
+  skin_dryness: [
+    "جفاف البشره",
+    "بشره جافه",
+    "جلد جاف",
+    "dry skin"
+  ],
+
+  skin_oiliness: [
+    "بشره دهنيه",
+    "دهون البشره",
+    "oily skin"
+  ],
+
+  skin_acne: [
+    "حب الشباب",
+    "حبوب",
+    "بثور",
+    "acne",
+    "pimples"
+  ]
+};
+
+function detectRecommendationNeeds(message) {
+  const text = normalizeText(message);
+  const detected = [];
+
+  for (const [need, terms] of Object.entries(RECOMMENDATION_NEEDS)) {
+    if (terms.some(term => text.includes(normalizeText(term)))) {
+      detected.push(need);
+    }
+  }
+
+  return detected;
+}
+
+function getRecommendationMatches(message, products) {
+  const tokens = getSearchTokens(message);
+  const requestedType = getProductType(tokens);
+  const needs = detectRecommendationNeeds(message);
+
+  const available = products.filter(product =>
+    product.is_in_stock === true
+  );
+
+  const typeMatches = requestedType
+    ? available.filter(product => {
+        const nameTokens = getSearchTokens(product.name);
+        return getProductType(nameTokens) === requestedType;
+      })
+    : available;
+
+  const ranked = typeMatches.map(product => {
+    const searchableText = normalizeText(
+      cleanText(
+        `${product.name || ""} ${product.description || ""}`
+      )
+    );
+
+    const matchedNeeds = needs.filter(need => {
+      const terms = RECOMMENDATION_NEEDS[need];
+
+      return terms.some(term =>
+        searchableText.includes(normalizeText(term))
+      );
+    });
+
+    return {
+      product,
+      matchedNeeds,
+      score:
+        (requestedType ? 5 : 0) +
+        matchedNeeds.length * 10
+    };
+  });
+
+  ranked.sort((a, b) => b.score - a.score);
+
+  const matchingNeeds = needs.length > 0;
+
+  const confirmedMatches = matchingNeeds
+    ? ranked.filter(item => item.matchedNeeds.length > 0)
+    : ranked;
+
+  return {
+    requestedType,
+    needs,
+    typeMatches: ranked.map(item => item.product),
+    confirmedMatches: confirmedMatches.map(item => item.product),
+    candidates: (confirmedMatches.length ? confirmedMatches : ranked)
+      .slice(0, 12)
+      .map(item => ({
+        product: item.product,
+        matchedNeeds: item.matchedNeeds
+      }))
+  };
+}
+
+// ======================================
+// PRODUCT SEARCH
+// ======================================
 
 const SEARCH_ALIASES = {
   "لوريال": "loreal",
@@ -284,6 +517,7 @@ function findMatchingProducts(message, products) {
 
   const ranked = products.map(product => {
     const nameTokens = getSearchTokens(product.name);
+
     const descriptionTokens = getSearchTokens(
       product.description || ""
     );
@@ -295,6 +529,7 @@ function findMatchingProducts(message, products) {
 
     for (const word of searchWords) {
       const nameSimilarity = tokenSimilarity(word, nameTokens);
+
       const descriptionSimilarity = tokenSimilarity(
         word,
         descriptionTokens
@@ -381,34 +616,9 @@ function selectBestMatches(rankedProducts) {
     .map(item => item.product);
 }
 
-function formatProductAnswer(product) {
-  const currency = product.currency_code || "EGP";
-  const discounted = hasDiscount(product);
-
-  let answer = `**${cleanText(product.name)}**\n\n`;
-
-  if (discounted) {
-    const saved = Number(product.regular_price) - Number(product.price);
-    const percent = product.discount_percent ||
-      Math.round(saved / Number(product.regular_price) * 100);
-
-    answer +=
-      `السعر قبل الخصم: ${formatMoney(product.regular_price, currency)}\n` +
-      `السعر بعد الخصم: ${formatMoney(product.price, currency)}\n` +
-      `الخصم: ${percent}%\n` +
-      `وفرت: ${formatMoney(saved, currency)}\n\n`;
-  } else {
-    answer += `السعر الحالي: ${formatMoney(product.price, currency)}\n\n`;
-  }
-
-  answer += `الحالة: ${product.is_in_stock ? "متوفر حاليًا" : "غير متوفر حاليًا"}`;
-
-  if (product.permalink) {
-    answer += `\n\nرابط المنتج: ${product.permalink}`;
-  }
-
-  return answer;
-}
+// ======================================
+// CHEAPER PRODUCT SEARCH
+// ======================================
 
 function findCheapestBelow(products, referencePrice) {
   return products
@@ -421,6 +631,10 @@ function findCheapestBelow(products, referencePrice) {
     )
     .sort((a, b) => Number(a.price) - Number(b.price));
 }
+
+// ======================================
+// MAIN API
+// ======================================
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
@@ -450,7 +664,7 @@ module.exports = async function handler(req, res) {
     const question = message.trim();
     const currentSessionId = getSessionId(sessionId);
 
-    // استرجاع المحادثة السابقة لنفس الجلسة.
+    // استرجاع المحادثة السابقة.
     const history = await getChatHistory(currentSessionId);
 
     const brain = await think({
@@ -506,7 +720,10 @@ module.exports = async function handler(req, res) {
         ? Number(priceMatch[1].replace(/,/g, ""))
         : null;
 
-      if (referencePrice == null || !Number.isFinite(referencePrice)) {
+      if (
+        referencePrice == null ||
+        !Number.isFinite(referencePrice)
+      ) {
         const answer =
           "تقصد أرخص من أنهي منتج؟ ابعتلي اسمه أو سعره وأنا أقارن لك.";
 
@@ -545,7 +762,7 @@ module.exports = async function handler(req, res) {
     }
 
     // ======================================
-    // DIRECT: CHEAPEST PRODUCT
+    // CHEAPEST PRODUCT
     // ======================================
 
     if (isCheapestQuestion(question)) {
@@ -600,13 +817,34 @@ module.exports = async function handler(req, res) {
     }
 
     // ======================================
+    // SMART RECOMMENDATIONS
+    // ======================================
+
+    const recommendationRequest =
+      isRecommendationQuestion(question);
+
+    let recommendationData = null;
+
+    if (recommendationRequest) {
+      recommendationData = getRecommendationMatches(
+        question,
+        products
+      );
+    }
+
+    // ======================================
     // PRODUCT SEARCH
     // ======================================
 
-    const rankedProducts = findMatchingProducts(question, products);
+    const rankedProducts = findMatchingProducts(
+      question,
+      products
+    );
+
     const matchedProducts = selectBestMatches(rankedProducts);
 
     if (
+      !recommendationRequest &&
       matchedProducts.length > 0 &&
       (
         isDiscountQuestion(question) ||
@@ -635,7 +873,7 @@ module.exports = async function handler(req, res) {
     }
 
     // ======================================
-    // GEMINI WITH CONVERSATION MEMORY
+    // PREPARE REAL STORE CATALOG
     // ======================================
 
     const catalog = products.map(product => ({
@@ -651,6 +889,26 @@ module.exports = async function handler(req, res) {
       url: product.permalink || null
     }));
 
+    // المنتجات المرشحة للتوصية فقط.
+    const recommendationCandidates = recommendationData
+      ? recommendationData.candidates.map(item => ({
+          id: item.product.woo_id,
+          name: cleanText(item.product.name),
+          description: cleanText(item.product.description || ""),
+          currentPrice: item.product.price,
+          regularPrice: item.product.regular_price,
+          discountPercent: item.product.discount_percent,
+          currency: item.product.currency_code || "EGP",
+          inStock: Boolean(item.product.is_in_stock),
+          matchedNeeds: item.matchedNeeds,
+          url: item.product.permalink || null
+        }))
+      : [];
+
+    // ======================================
+    // GEMINI
+    // ======================================
+
     const apiKey = process.env.GEMINI_API_KEY;
     const model = process.env.GEMINI_MODEL;
 
@@ -661,6 +919,32 @@ module.exports = async function handler(req, res) {
     const historyText = history.map(item =>
       `${item.role === "user" ? "العميل" : "المساعد"}: ${item.content}`
     ).join("\n\n");
+
+    const recommendationInstructions = recommendationRequest
+      ? `
+هذا الطلب هو طلب توصية بمنتج.
+
+بيانات التوصية:
+${JSON.stringify({
+  requestedType: recommendationData.requestedType,
+  detectedNeeds: recommendationData.needs,
+  candidates: recommendationCandidates
+})}
+
+قواعد التوصيات:
+- رشّح منتجات من قائمة candidates فقط.
+- لا ترشّح منتجًا غير متوفر.
+- لا تخترع فوائد أو مكونات أو نتائج غير موجودة في اسم المنتج أو وصفه.
+- استخدم matchedNeeds كإشارة مساعدة فقط، ولا تعتبرها دليلًا طبيًا.
+- إذا لم توجد منتجات تطابق احتياج العميل بوضوح، قل ذلك بصراحة.
+- إذا وجدت منتجات من نفس النوع لكن وصفها لا يؤكد تلبية الاحتياج، وضّح هذا للعميل.
+- لا تدّعِ أن منتجًا يعالج مرضًا أو مشكلة طبية.
+- اعرض السعر الحالي والخصم الحقيقي ورابط المنتج عند توفرها.
+- إذا كان طلب العميل غير واضح، اسأله سؤالًا واحدًا محددًا.
+- لا تعرض كل المنتجات؛ اختر حتى 3 منتجات مناسبة فقط.
+- اشرح باختصار سبب اختيار كل منتج اعتمادًا على البيانات المتاحة.
+`
+      : "";
 
     const prompt = `
 أنت Ask Logvidia، وكيل ذكاء اصطناعي متخصص في خدمة عملاء متجر Logvidia.
@@ -694,6 +978,8 @@ ${historyText || "لا توجد محادثة سابقة."}
 - إذا وجدت منتجات متشابهة، اعرض الاختيارات واسأل العميل عن النوع المقصود.
 - لا تختر منتجًا عشوائيًا عند وجود أكثر من تطابق قوي.
 
+${recommendationInstructions}
+
 قواعد عامة:
 - أجب مباشرة وبأسلوب طبيعي وودود.
 - قارن المنتجات عند الطلب.
@@ -707,7 +993,7 @@ ${historyText || "لا توجد محادثة سابقة."}
 نوع الطلب:
 ${brain.intent}
 
-بيانات المنتجات:
+بيانات المنتجات الحقيقية:
 ${JSON.stringify(catalog)}
 
 رسالة العميل الحالية:
@@ -725,7 +1011,13 @@ ${question}
           "x-goog-api-key": apiKey
         },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [
+            {
+              parts: [
+                { text: prompt }
+              ]
+            }
+          ],
           generationConfig: {
             temperature: 0.3,
             maxOutputTokens: 1800
@@ -768,7 +1060,9 @@ ${question}
       success: true,
       answer,
       sessionId: currentSessionId,
-      intent: brain.intent
+      intent: recommendationRequest
+        ? "recommendations"
+        : brain.intent
     });
 
   } catch (error) {
