@@ -89,7 +89,7 @@
 
   panel.innerHTML = `
     <div id="ask-logvidia-head">
-      <strong><i class="fa-solid fa-robot"></i> Ask Logvidia</strong>
+   <i class="fa-solid fa-robot"></i>
       <button id="ask-logvidia-close" aria-label="إغلاق">×</button>
     </div>
 
