@@ -40,9 +40,7 @@ async function fetchWooProducts() {
   const base = STORE_URL.replace(/\/$/, "");
 
   for (let page = 1; page <= 5; page++) {
-    const url = new URL(
-      `${base}/wp-json/wc/store/v1/products`
-    );
+    const url = new URL(`${base}/wp-json/wc/store/v1/products`);
 
     url.searchParams.set("per_page", "100");
     url.searchParams.set("page", String(page));
@@ -68,6 +66,29 @@ async function fetchWooProducts() {
   return products.map(product => {
     const prices = product.prices || {};
     const minorUnit = Number(prices.currency_minor_unit ?? 2);
+    const divisor = Math.pow(10, minorUnit);
+
+    const currentPrice = prices.price != null
+      ? Number(prices.price) / divisor
+      : null;
+
+    const regularPrice = prices.regular_price != null
+      ? Number(prices.regular_price) / divisor
+      : null;
+
+    const salePrice = prices.sale_price != null
+      ? Number(prices.sale_price) / divisor
+      : null;
+
+    const hasDiscount =
+      regularPrice !== null &&
+      currentPrice !== null &&
+      regularPrice > currentPrice &&
+      regularPrice > 0;
+
+    const discountPercent = hasDiscount
+      ? Math.round(((regularPrice - currentPrice) / regularPrice) * 100)
+      : 0;
 
     return {
       woo_id: product.id,
@@ -77,9 +98,12 @@ async function fetchWooProducts() {
       description: product.short_description ||
                    product.description || "",
       image_url: product.images?.[0]?.src || null,
-      price: prices.price != null
-        ? Number(prices.price) / Math.pow(10, minorUnit)
-        : null,
+
+      price: currentPrice,
+      regular_price: regularPrice,
+      sale_price: hasDiscount ? currentPrice : salePrice,
+      discount_percent: discountPercent,
+
       currency_code: prices.currency_code || "EGP",
       is_in_stock: Boolean(product.is_in_stock),
       updated_at: new Date().toISOString()
@@ -110,7 +134,7 @@ async function syncProducts() {
 
 async function getProducts() {
   return await supabaseRequest(
-    "products?select=woo_id,name,slug,permalink,description,image_url,price,currency_code,is_in_stock&order=name.asc",
+    "products?select=woo_id,name,slug,permalink,description,image_url,price,regular_price,sale_price,discount_percent,currency_code,is_in_stock&order=name.asc",
     { method: "GET" }
   );
 }
