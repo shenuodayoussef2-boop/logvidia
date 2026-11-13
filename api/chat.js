@@ -1,8 +1,8 @@
 
-const { getProducts, supabaseRequest } = require("./_lib");
+const { supabaseRequest } = require("./_lib");
+const { think, normalizeText } = require("./brain");
 const crypto = require("crypto");
 
-// تنظيف النصوص من HTML
 function cleanText(value = "") {
   return String(value)
     .replace(/<[^>]*>/g, " ")
@@ -16,70 +16,6 @@ function cleanText(value = "") {
     .trim();
 }
 
-// توحيد النصوص لتسهيل البحث
-function normalizeText(value = "") {
-  return String(value)
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u064B-\u065F\u0670]/g, "")
-    .replace(/[أإآ]/g, "ا")
-    .replace(/ى/g, "ي")
-    .replace(/ة/g, "ه")
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-// تحديد طلب عرض جميع المنتجات
-function isAllProductsQuestion(message) {
-  const text = normalizeText(message);
-
-  const mentionsProducts =
-    /(?:المنتجات|منتجات|product|products)/.test(text);
-
-  const asksForAll =
-    /(?:كل|جميع|ما|ايه|اي|اعرض|وريني|المتاحه|المتوفره|الموجوده|عندكم|available|all|show|list)/.test(text);
-
-  return mentionsProducts && asksForAll;
-}
-
-// تحديد السؤال عن Absolut Repair
-function isAbsolutQuestion(message) {
-  const text = normalizeText(message);
-
-  const keywords = [
-    "absolut",
-    "absolute",
-    "ابسلوت",
-    "ابسلويت",
-    "ابسولوت",
-    "ابسوليت",
-    "ابسلوت ريبير",
-    "ابسولوت ريبير",
-    "ابسلويت ريبير",
-    "ابسو لوت"
-  ];
-
-  return keywords.some(keyword =>
-    text.includes(normalizeText(keyword))
-  );
-}
-
-// البحث عن منتجات Absolut Repair
-function findAbsolutProducts(products) {
-  return products.filter(product => {
-    const content = normalizeText(
-      `${product.name} ${product.description || ""}`
-    );
-
-    return (
-      content.includes("absolut") ||
-      content.includes("absolute")
-    );
-  });
-}
-
-// إنشاء رقم الجلسة
 function getSessionId(sessionId) {
   if (
     typeof sessionId === "string" &&
@@ -91,7 +27,6 @@ function getSessionId(sessionId) {
   return "session-" + crypto.randomUUID();
 }
 
-// حفظ المحادثة
 async function saveChat(sessionId, question, answer) {
   try {
     await supabaseRequest("chat_logs", {
@@ -110,23 +45,29 @@ async function saveChat(sessionId, question, answer) {
   }
 }
 
-// تنسيق منتج واحد
 function formatProduct(product, index) {
-  const name = cleanText(product.name);
   const price = product.price != null
     ? `${product.price} ${product.currency_code || "EGP"}`
     : "السعر غير محدد";
 
-  const stock = product.is_in_stock
-    ? "متوفر"
-    : "غير متوفر حاليًا";
-
   return (
-    `${index + 1}. ${name}\n` +
+    `${index + 1}. ${cleanText(product.name)}\n` +
     `السعر: ${price}\n` +
-    `الحالة: ${stock}\n` +
+    `الحالة: ${product.is_in_stock ? "متوفر" : "غير متوفر"}\n` +
     `رابط المنتج: ${product.permalink || "غير متاح"}`
   );
+}
+
+function isAllProductsQuestion(message) {
+  const text = normalizeText(message);
+
+  const mentionsProducts =
+    /(?:المنتجات|منتجات|product|products)/.test(text);
+
+  const asksForAll =
+    /(?:كل|جميع|ما|ايه|اي|اعرض|وريني|المتاحه|المتوفره|الموجوده|عندكم|available|all|show|list)/.test(text);
+
+  return mentionsProducts && asksForAll;
 }
 
 module.exports = async function handler(req, res) {
@@ -160,48 +101,47 @@ module.exports = async function handler(req, res) {
     const question = message.trim();
     const currentSessionId = getSessionId(sessionId);
 
-    // إعداد Gemini
-    const apiKey = process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL;
+    // لا نثق في أي role يرسله المتصفح.
+    // المحادثة العامة حاليًا تعمل بصلاحيات الزبون فقط.
+    const brain = await think({
+      message: question,
+      history: [],
+      role: "customer"
+    });
 
-    if (!apiKey || !model) {
-      throw new Error(
-        "Gemini environment variables are missing."
-      );
+    if (!brain.success) {
+      throw new Error("Brain could not process the request.");
     }
 
-    // تحميل المنتجات من Supabase
-    const products = await getProducts();
+    if (brain.requiresAuthorization) {
+      return res.status(403).json({
+        success: false,
+        error: "هذه المعلومات متاحة لصاحب المتجر فقط."
+      });
+    }
+
+    const products =
+      brain.context?.storeKnowledge?.products || [];
 
     if (!Array.isArray(products)) {
-      throw new Error("Products data is invalid.");
+      throw new Error("Invalid store knowledge.");
     }
 
-    // =====================================
-    // الحالة الأولى: العميل يسأل عن كل المنتجات
-    // =====================================
-
+    // عرض المنتجات المتاحة مباشرة من قاعدة البيانات.
     if (isAllProductsQuestion(question)) {
-
       const availableProducts = products.filter(
         product => product.is_in_stock === true
       );
 
-      let answer;
-
-      if (availableProducts.length > 0) {
-        answer =
-          `أهلًا بك في Logvidia!\n` +
-          `دي قائمة المنتجات المتاحة حاليًا (${availableProducts.length} منتج):\n\n` +
-          availableProducts
-            .map((product, index) =>
-              formatProduct(product, index)
-            )
-            .join("\n\n");
-      } else {
-        answer =
-          "لا توجد منتجات متاحة حاليًا في المتجر.";
-      }
+      const answer = availableProducts.length
+        ? (
+            `أهلًا بك في Logvidia!\n` +
+            `دي المنتجات المتاحة حاليًا (${availableProducts.length} منتج):\n\n` +
+            availableProducts
+              .map(formatProduct)
+              .join("\n\n")
+          )
+        : "لا توجد منتجات متاحة حاليًا في المتجر.";
 
       await saveChat(
         currentSessionId,
@@ -212,91 +152,70 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({
         success: true,
         answer,
-        sessionId: currentSessionId
+        sessionId: currentSessionId,
+        intent: brain.intent
       });
     }
 
-    // =====================================
-    // الحالة الثانية: البحث عن Absolut Repair
-    // =====================================
-
-    const absolutQuestion = isAbsolutQuestion(question);
-
-    const relevantProducts = absolutQuestion
-      ? findAbsolutProducts(products)
-      : products;
-
-    const catalog = relevantProducts.map(product => ({
+    // تجهيز معرفة المتجر للعقل اللغوي.
+    const catalog = products.map(product => ({
       id: product.woo_id,
       name: cleanText(product.name),
       description: cleanText(product.description || ""),
       price: product.price,
       currency: product.currency_code || "EGP",
-      inStock: product.is_in_stock,
-      url: product.permalink
+      inStock: Boolean(product.is_in_stock),
+      url: product.permalink || null
     }));
 
-    if (absolutQuestion && catalog.length === 0) {
-      const answer =
-        "لم أجد منتجات Absolut Repair ضمن المنتجات الموجودة في المتجر حاليًا.";
+    const apiKey = process.env.GEMINI_API_KEY;
+    const model = process.env.GEMINI_MODEL;
 
-      await saveChat(
-        currentSessionId,
-        question,
-        answer
-      );
-
-      return res.status(200).json({
-        success: true,
-        answer,
-        sessionId: currentSessionId
-      });
+    if (!apiKey || !model) {
+      throw new Error("Gemini configuration is missing.");
     }
 
-    // =====================================
-    // تعليمات Gemini
-    // =====================================
-
     const prompt = `
-أنت Ask Logvidia، مساعد التسوق الذكي لمتجر Logvidia.
+أنت Ask Logvidia، وكيل ذكاء اصطناعي متخصص في خدمة عملاء متجر Logvidia.
+
+أنت لست مجرد بوت يعرض المنتجات.
+أنت مساعد ذكي يفهم نية العميل، ويحلل طلبه، ويستخدم معلومات المتجر للإجابة بدقة.
 
 مهمتك:
-مساعدة العملاء في البحث عن المنتجات ومعرفة الأسعار والتوفر والمقارنة بينها.
+- فهم العربية المصرية والعربية الفصحى والإنجليزية.
+- فهم اختلاف كتابة أسماء المنتجات والأخطاء الإملائية قدر الإمكان.
+- فهم الأسئلة المختصرة اعتمادًا على سياق المحادثة المتاح.
+- البحث في أسماء المنتجات وأوصافها.
+- مقارنة المنتجات وترشيح الأنسب حسب احتياج العميل.
+- شرح الفروق بين المنتجات بطريقة بسيطة.
+- ذكر السعر والتوفر كما وردا في بيانات المتجر.
+- إضافة رابط المنتج إذا كان موجودًا.
 
-قواعد الإجابة:
+قواعد أساسية:
+1. أجب عن السؤال مباشرة.
+2. لا تكرر تعريف نفسك في كل رد.
+3. لا تخترع منتجات أو أسعارًا أو مواصفات أو مخزونًا.
+4. لا تفترض أن المنتج متوفر إذا كانت بياناته تقول غير ذلك.
+5. إذا لم تفهم كلمة أو طلبًا، اسأل سؤالًا توضيحيًا.
+6. إذا لم تجد المنتج، وضّح ذلك ولا تخترع نتيجة.
+7. إذا طلب العميل مقارنة، قارن كل المنتجات المناسبة الموجودة في البيانات.
+8. لا تدّعِ أنك نفذت شراءً أو تعديلًا أو حجزًا.
+9. لا تكشف بيانات العملاء أو الفواتير أو المعلومات الإدارية.
+10. لا تدّعِ امتلاك صلاحيات صاحب المتجر.
+11. أجب بلغة العميل وبأسلوب طبيعي وودود.
+12. لا تعرض معلومات تقنية أو JSON.
 
-1. أجب عن سؤال العميل مباشرة.
-2. لا تكرر تعريف نفسك في كل إجابة.
-3. لا تقل "أنا مساعد المتجر الذكي" إذا كان العميل يسأل عن منتج.
-4. افهم أسماء المنتجات بالعربية والإنجليزية حتى لو كانت مكتوبة بتهجئة غير دقيقة.
-5. ابحث في أسماء المنتجات وأوصافها.
-6. اعرض جميع المنتجات المطابقة لسؤال العميل، وليس منتجًا واحدًا فقط.
-7. إذا طلب العميل المقارنة، قارن بين المنتجات المتاحة.
-8. اذكر السعر وحالة المخزون كما وردا في البيانات.
-9. أضف رابط المنتج عند توفره.
-10. لا تخترع منتجات أو أسعارًا أو معلومات.
-11. إذا لم تجد منتجًا مطابقًا، أخبر العميل بوضوح.
-12. أجب بلغة العميل.
-13. استخدم أسلوبًا مصريًا طبيعيًا وودودًا.
-14. لا تستخدم Markdown أو علامات النجمتين.
-15. لا تعرض بيانات JSON أو معلومات تقنية للعميل.
-16. لا تدّعِ أنك نفذت عملية شراء أو تعديل طلب.
-17. إذا سأل العميل عن Absolut Repair، اعرض كل المنتجات المطابقة الموجودة في البيانات.
+نوع الطلب الذي حلله النظام:
+${brain.intent}
 
-بيانات المنتجات:
+بيانات المنتجات الحقيقية:
+${JSON.stringify(catalog)}
 
-${JSON.stringify(catalog, null, 2)}
-
-سؤال العميل:
-
+رسالة العميل:
 ${question}
 
-أجب مباشرة عن السؤال بالاعتماد على بيانات المتجر فقط.
+اكتب أفضل إجابة ممكنة اعتمادًا على البيانات المتاحة.
 `;
-
-    // =====================================
-    // الاتصال بـ Gemini
-    // =====================================
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
@@ -309,11 +228,7 @@ ${question}
         body: JSON.stringify({
           contents: [
             {
-              parts: [
-                {
-                  text: prompt
-                }
-              ]
+              parts: [{ text: prompt }]
             }
           ],
           generationConfig: {
@@ -334,6 +249,13 @@ ${question}
         result
       );
 
+      if (response.status === 429) {
+        return res.status(503).json({
+          success: false,
+          error: "وصل المساعد إلى حد الاستخدام الحالي. حاول مرة أخرى لاحقًا."
+        });
+      }
+
       return res.status(502).json({
         success: false,
         error: "تعذر الحصول على رد من المساعد حاليًا."
@@ -346,30 +268,24 @@ ${question}
       .trim();
 
     if (!answer) {
-      throw new Error(
-        "Gemini returned an empty response."
-      );
+      throw new Error("Gemini returned an empty response.");
     }
 
-    // حفظ المحادثة
     await saveChat(
       currentSessionId,
       question,
       answer
     );
 
-    // إرسال الرد
     return res.status(200).json({
       success: true,
       answer,
-      sessionId: currentSessionId
+      sessionId: currentSessionId,
+      intent: brain.intent
     });
 
   } catch (error) {
-    console.error(
-      "Chat API error:",
-      error.message
-    );
+    console.error("Chat API error:", error.message);
 
     return res.status(500).json({
       success: false,
