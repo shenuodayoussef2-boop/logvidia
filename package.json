@@ -1,0 +1,10 @@
+
+{
+  "name": "ask-logvidia",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ask Logvidia AI Shopping Assistant",
+  "engines": {
+    "node": ">=20"
+  }
+}
