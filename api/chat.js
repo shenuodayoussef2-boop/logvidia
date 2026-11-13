@@ -31,9 +31,7 @@ async function saveChat(sessionId, question, answer) {
   try {
     await supabaseRequest("chat_logs", {
       method: "POST",
-      headers: {
-        Prefer: "return=minimal"
-      },
+      headers: { Prefer: "return=minimal" },
       body: JSON.stringify({
         session_id: sessionId,
         question,
@@ -45,14 +43,43 @@ async function saveChat(sessionId, question, answer) {
   }
 }
 
+function formatMoney(value, currency = "EGP") {
+  if (value == null || !Number.isFinite(Number(value))) {
+    return "غير محدد";
+  }
+
+  return `${Number(value).toLocaleString("en-US")} ${currency}`;
+}
+
+function hasDiscount(product) {
+  return (
+    Number(product.regular_price) > Number(product.price) &&
+    Number(product.regular_price) > 0 &&
+    product.price != null
+  );
+}
+
 function formatProduct(product, index) {
-  const price = product.price != null
-    ? `${product.price} ${product.currency_code || "EGP"}`
-    : "السعر غير محدد";
+  const discounted = hasDiscount(product);
+  const currency = product.currency_code || "EGP";
+
+  let pricing = `السعر: ${formatMoney(product.price, currency)}`;
+
+  if (discounted) {
+    const saved = Number(product.regular_price) - Number(product.price);
+    const percent = product.discount_percent ||
+      Math.round(saved / Number(product.regular_price) * 100);
+
+    pricing =
+      `السعر قبل الخصم: ${formatMoney(product.regular_price, currency)}\n` +
+      `السعر بعد الخصم: ${formatMoney(product.price, currency)}\n` +
+      `نسبة الخصم: ${percent}%\n` +
+      `التوفير: ${formatMoney(saved, currency)}`;
+  }
 
   return (
     `${index + 1}. ${cleanText(product.name)}\n` +
-    `السعر: ${price}\n` +
+    `${pricing}\n` +
     `الحالة: ${product.is_in_stock ? "متوفر" : "غير متوفر"}\n` +
     `رابط المنتج: ${product.permalink || "غير متاح"}`
   );
@@ -70,6 +97,82 @@ function isAllProductsQuestion(message) {
   return mentionsProducts && asksForAll;
 }
 
+function isDiscountQuestion(message) {
+  const text = normalizeText(message);
+
+  return /(?:خصم|تخفيض|تخفيضات|عروض|عرض|قبل الخصم|بعد الخصم|discount|sale|offer|offers)/.test(text);
+}
+
+function findMatchingProducts(message, products) {
+  const text = normalizeText(message);
+
+  const words = text
+    .split(/\s+/)
+    .filter(word => word.length >= 2);
+
+  const ignored = new Set([
+    "بكام", "كام", "سعر", "اسعار", "عندكم", "عاوز",
+    "عايز", "محتاج", "موجود", "متاح", "المنتج",
+    "منتج", "المنتجات", "لو", "سمحت", "من", "في",
+    "على", "قبل", "بعد", "الخصم", "خصم", "تخفيض",
+    "تخفيضات", "عروض", "عرض", "عندكو", "ممكن",
+    "ايه", "هو", "هي", "the", "price", "how",
+    "much", "is", "what", "discount", "sale"
+  ]);
+
+  const searchWords = words.filter(word => !ignored.has(word));
+
+  if (!searchWords.length) return [];
+
+  return products
+    .map(product => {
+      const name = normalizeText(cleanText(product.name));
+      const description = normalizeText(cleanText(product.description || ""));
+
+      let score = 0;
+
+      for (const word of searchWords) {
+        if (name.includes(word)) score += word.length >= 5 ? 4 : 2;
+        else if (description.includes(word)) score += 1;
+      }
+
+      return { product, score };
+    })
+    .filter(item => item.score >= 2)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map(item => item.product);
+}
+
+function formatProductAnswer(product) {
+  const currency = product.currency_code || "EGP";
+  const discounted = hasDiscount(product);
+
+  let answer = `**${cleanText(product.name)}**\n\n`;
+
+  if (discounted) {
+    const saved = Number(product.regular_price) - Number(product.price);
+    const percent = product.discount_percent ||
+      Math.round(saved / Number(product.regular_price) * 100);
+
+    answer +=
+      `السعر قبل الخصم: ${formatMoney(product.regular_price, currency)}\n` +
+      `السعر بعد الخصم: ${formatMoney(product.price, currency)}\n` +
+      `الخصم: ${percent}%\n` +
+      `وفرت: ${formatMoney(saved, currency)}\n\n`;
+  } else {
+    answer += `السعر الحالي: ${formatMoney(product.price, currency)}\n\n`;
+  }
+
+  answer += `الحالة: ${product.is_in_stock ? "متوفر حاليًا" : "غير متوفر حاليًا"}`;
+
+  if (product.permalink) {
+    answer += `\n\nرابط المنتج: ${product.permalink}`;
+  }
+
+  return answer;
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -81,10 +184,7 @@ module.exports = async function handler(req, res) {
   try {
     const { message, sessionId } = req.body || {};
 
-    if (
-      typeof message !== "string" ||
-      !message.trim()
-    ) {
+    if (typeof message !== "string" || !message.trim()) {
       return res.status(400).json({
         success: false,
         error: "اكتب سؤالك أولاً."
@@ -101,8 +201,6 @@ module.exports = async function handler(req, res) {
     const question = message.trim();
     const currentSessionId = getSessionId(sessionId);
 
-    // لا نثق في أي role يرسله المتصفح.
-    // المحادثة العامة حاليًا تعمل بصلاحيات الزبون فقط.
     const brain = await think({
       message: question,
       history: [],
@@ -120,14 +218,13 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const products =
-      brain.context?.storeKnowledge?.products || [];
+    const products = brain.context?.storeKnowledge?.products || [];
 
     if (!Array.isArray(products)) {
       throw new Error("Invalid store knowledge.");
     }
 
-    // عرض المنتجات المتاحة مباشرة من قاعدة البيانات.
+    // عرض جميع المنتجات مع أسعارها وخصوماتها.
     if (isAllProductsQuestion(question)) {
       const availableProducts = products.filter(
         product => product.is_in_stock === true
@@ -137,17 +234,11 @@ module.exports = async function handler(req, res) {
         ? (
             `أهلًا بك في Logvidia!\n` +
             `دي المنتجات المتاحة حاليًا (${availableProducts.length} منتج):\n\n` +
-            availableProducts
-              .map(formatProduct)
-              .join("\n\n")
+            availableProducts.map(formatProduct).join("\n\n")
           )
         : "لا توجد منتجات متاحة حاليًا في المتجر.";
 
-      await saveChat(
-        currentSessionId,
-        question,
-        answer
-      );
+      await saveChat(currentSessionId, question, answer);
 
       return res.status(200).json({
         success: true,
@@ -157,12 +248,42 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // تجهيز معرفة المتجر للعقل اللغوي.
+    // إجابة مباشرة عن سعر المنتج أو التخفيض من قاعدة البيانات.
+    const matchedProducts = findMatchingProducts(question, products);
+
+    if (
+      matchedProducts.length > 0 &&
+      (
+        isDiscountQuestion(question) ||
+        /(?:بكام|كام|سعر|اسعار|price|how much)/.test(normalizeText(question))
+      )
+    ) {
+      const answer = matchedProducts.length === 1
+        ? formatProductAnswer(matchedProducts[0])
+        : (
+            "لقيت المنتجات دي الأقرب لسؤالك:\n\n" +
+            matchedProducts.map(formatProduct).join("\n\n")
+          );
+
+      await saveChat(currentSessionId, question, answer);
+
+      return res.status(200).json({
+        success: true,
+        answer,
+        sessionId: currentSessionId,
+        intent: brain.intent
+      });
+    }
+
+    // تجهيز بيانات المتجر لـ Gemini.
     const catalog = products.map(product => ({
       id: product.woo_id,
       name: cleanText(product.name),
       description: cleanText(product.description || ""),
-      price: product.price,
+      currentPrice: product.price,
+      regularPrice: product.regular_price,
+      salePrice: product.sale_price,
+      discountPercent: product.discount_percent,
       currency: product.currency_code || "EGP",
       inStock: Boolean(product.is_in_stock),
       url: product.permalink || null
@@ -178,43 +299,40 @@ module.exports = async function handler(req, res) {
     const prompt = `
 أنت Ask Logvidia، وكيل ذكاء اصطناعي متخصص في خدمة عملاء متجر Logvidia.
 
-أنت لست مجرد بوت يعرض المنتجات.
-أنت مساعد ذكي يفهم نية العميل، ويحلل طلبه، ويستخدم معلومات المتجر للإجابة بدقة.
+افهم العربية المصرية والفصحى والإنجليزية وأخطاء الكتابة.
+استخدم بيانات المنتجات الحقيقية فقط.
 
-مهمتك:
-- فهم العربية المصرية والعربية الفصحى والإنجليزية.
-- فهم اختلاف كتابة أسماء المنتجات والأخطاء الإملائية قدر الإمكان.
-- فهم الأسئلة المختصرة اعتمادًا على سياق المحادثة المتاح.
-- البحث في أسماء المنتجات وأوصافها.
-- مقارنة المنتجات وترشيح الأنسب حسب احتياج العميل.
-- شرح الفروق بين المنتجات بطريقة بسيطة.
-- ذكر السعر والتوفر كما وردا في بيانات المتجر.
-- إضافة رابط المنتج إذا كان موجودًا.
+قواعد الأسعار:
+- currentPrice هو السعر الحالي الذي يدفعه العميل.
+- regularPrice هو السعر الأصلي قبل الخصم.
+- salePrice هو سعر التخفيض.
+- discountPercent هي نسبة الخصم المحسوبة.
+- إذا كان regularPrice أكبر من currentPrice، اعرض السعر قبل الخصم وبعد الخصم ونسبة الخصم.
+- لا تقل إن هناك خصمًا إذا لم يظهر فرق حقيقي بين السعرين.
+- لا تخترع سعرًا أو نسبة خصم.
+- لا تستخدم سعرًا من الذاكرة أو من خارج بيانات المتجر.
+- اذكر رابط المنتج عند توفره.
 
-قواعد أساسية:
-1. أجب عن السؤال مباشرة.
-2. لا تكرر تعريف نفسك في كل رد.
-3. لا تخترع منتجات أو أسعارًا أو مواصفات أو مخزونًا.
-4. لا تفترض أن المنتج متوفر إذا كانت بياناته تقول غير ذلك.
-5. إذا لم تفهم كلمة أو طلبًا، اسأل سؤالًا توضيحيًا.
-6. إذا لم تجد المنتج، وضّح ذلك ولا تخترع نتيجة.
-7. إذا طلب العميل مقارنة، قارن كل المنتجات المناسبة الموجودة في البيانات.
-8. لا تدّعِ أنك نفذت شراءً أو تعديلًا أو حجزًا.
-9. لا تكشف بيانات العملاء أو الفواتير أو المعلومات الإدارية.
-10. لا تدّعِ امتلاك صلاحيات صاحب المتجر.
-11. أجب بلغة العميل وبأسلوب طبيعي وودود.
-12. لا تعرض معلومات تقنية أو JSON.
+قواعد عامة:
+- أجب مباشرة وبأسلوب طبيعي وودود.
+- قارن المنتجات عند الطلب.
+- اسأل سؤالًا توضيحيًا عند عدم وضوح المنتج.
+- لا تدّعِ تنفيذ شراء أو تعديل أو حجز.
+- لا تكشف بيانات العملاء أو الفواتير أو المعلومات الإدارية.
+- لا تدّعِ امتلاك صلاحيات صاحب المتجر.
+- أجب بلغة العميل.
+- لا تعرض JSON أو معلومات تقنية.
 
-نوع الطلب الذي حلله النظام:
+نوع الطلب:
 ${brain.intent}
 
-بيانات المنتجات الحقيقية:
+بيانات المنتجات:
 ${JSON.stringify(catalog)}
 
 رسالة العميل:
 ${question}
 
-اكتب أفضل إجابة ممكنة اعتمادًا على البيانات المتاحة.
+اكتب إجابة دقيقة ومفيدة.
 `;
 
     const response = await fetch(
@@ -226,11 +344,7 @@ ${question}
           "x-goog-api-key": apiKey
         },
         body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: prompt }]
-            }
-          ],
+          contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.3,
             maxOutputTokens: 1800
@@ -243,11 +357,7 @@ ${question}
     const result = await response.json();
 
     if (!response.ok) {
-      console.error(
-        "Gemini error:",
-        response.status,
-        result
-      );
+      console.error("Gemini error:", response.status, result);
 
       if (response.status === 429) {
         return res.status(503).json({
@@ -271,11 +381,7 @@ ${question}
       throw new Error("Gemini returned an empty response.");
     }
 
-    await saveChat(
-      currentSessionId,
-      question,
-      answer
-    );
+    await saveChat(currentSessionId, question, answer);
 
     return res.status(200).json({
       success: true,
