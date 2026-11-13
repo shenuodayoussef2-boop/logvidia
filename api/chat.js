@@ -11,11 +11,12 @@ function cleanText(value = "") {
     .replace(/&#8217;|&#039;|&rsquo;/gi, "'")
     .replace(/&quot;/gi, '"')
     .replace(/&#8211;|&ndash;/gi, "-")
+    .replace(/&#038;/gi, "&")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-// توحيد الكتابة العربية والإنجليزية
+// توحيد النصوص لتسهيل البحث
 function normalizeText(value = "") {
   return String(value)
     .toLowerCase()
@@ -29,9 +30,22 @@ function normalizeText(value = "") {
     .trim();
 }
 
-// اكتشاف السؤال عن Absolut Repair
+// تحديد طلب عرض جميع المنتجات
+function isAllProductsQuestion(message) {
+  const text = normalizeText(message);
+
+  const mentionsProducts =
+    /(?:المنتجات|منتجات|product|products)/.test(text);
+
+  const asksForAll =
+    /(?:كل|جميع|ما|ايه|اي|اعرض|وريني|المتاحه|المتوفره|الموجوده|عندكم|available|all|show|list)/.test(text);
+
+  return mentionsProducts && asksForAll;
+}
+
+// تحديد السؤال عن Absolut Repair
 function isAbsolutQuestion(message) {
-  const normalized = normalizeText(message);
+  const text = normalizeText(message);
 
   const keywords = [
     "absolut",
@@ -40,7 +54,6 @@ function isAbsolutQuestion(message) {
     "ابسلويت",
     "ابسولوت",
     "ابسوليت",
-    "ابسلويت",
     "ابسلوت ريبير",
     "ابسولوت ريبير",
     "ابسلويت ريبير",
@@ -48,7 +61,7 @@ function isAbsolutQuestion(message) {
   ];
 
   return keywords.some(keyword =>
-    normalized.includes(normalizeText(keyword))
+    text.includes(normalizeText(keyword))
   );
 }
 
@@ -64,6 +77,56 @@ function findAbsolutProducts(products) {
       content.includes("absolute")
     );
   });
+}
+
+// إنشاء رقم الجلسة
+function getSessionId(sessionId) {
+  if (
+    typeof sessionId === "string" &&
+    /^[a-zA-Z0-9_-]{8,80}$/.test(sessionId)
+  ) {
+    return sessionId;
+  }
+
+  return "session-" + crypto.randomUUID();
+}
+
+// حفظ المحادثة
+async function saveChat(sessionId, question, answer) {
+  try {
+    await supabaseRequest("chat_logs", {
+      method: "POST",
+      headers: {
+        Prefer: "return=minimal"
+      },
+      body: JSON.stringify({
+        session_id: sessionId,
+        question,
+        answer
+      })
+    });
+  } catch (error) {
+    console.error("Chat logging failed:", error.message);
+  }
+}
+
+// تنسيق منتج واحد
+function formatProduct(product, index) {
+  const name = cleanText(product.name);
+  const price = product.price != null
+    ? `${product.price} ${product.currency_code || "EGP"}`
+    : "السعر غير محدد";
+
+  const stock = product.is_in_stock
+    ? "متوفر"
+    : "غير متوفر حاليًا";
+
+  return (
+    `${index + 1}. ${name}\n` +
+    `السعر: ${price}\n` +
+    `الحالة: ${stock}\n` +
+    `رابط المنتج: ${product.permalink || "غير متاح"}`
+  );
 }
 
 module.exports = async function handler(req, res) {
@@ -94,6 +157,9 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    const question = message.trim();
+    const currentSessionId = getSessionId(sessionId);
+
     // إعداد Gemini
     const apiKey = process.env.GEMINI_API_KEY;
     const model = process.env.GEMINI_MODEL;
@@ -111,14 +177,55 @@ module.exports = async function handler(req, res) {
       throw new Error("Products data is invalid.");
     }
 
-    // تحديد المنتجات المتعلقة بالسؤال
-    const absolutQuestion = isAbsolutQuestion(message);
+    // =====================================
+    // الحالة الأولى: العميل يسأل عن كل المنتجات
+    // =====================================
+
+    if (isAllProductsQuestion(question)) {
+
+      const availableProducts = products.filter(
+        product => product.is_in_stock === true
+      );
+
+      let answer;
+
+      if (availableProducts.length > 0) {
+        answer =
+          `أهلًا بك في Logvidia!\n` +
+          `دي قائمة المنتجات المتاحة حاليًا (${availableProducts.length} منتج):\n\n` +
+          availableProducts
+            .map((product, index) =>
+              formatProduct(product, index)
+            )
+            .join("\n\n");
+      } else {
+        answer =
+          "لا توجد منتجات متاحة حاليًا في المتجر.";
+      }
+
+      await saveChat(
+        currentSessionId,
+        question,
+        answer
+      );
+
+      return res.status(200).json({
+        success: true,
+        answer,
+        sessionId: currentSessionId
+      });
+    }
+
+    // =====================================
+    // الحالة الثانية: البحث عن Absolut Repair
+    // =====================================
+
+    const absolutQuestion = isAbsolutQuestion(question);
 
     const relevantProducts = absolutQuestion
       ? findAbsolutProducts(products)
       : products;
 
-    // تجهيز بيانات المنتجات
     const catalog = relevantProducts.map(product => ({
       id: product.woo_id,
       name: cleanText(product.name),
@@ -129,59 +236,68 @@ module.exports = async function handler(req, res) {
       url: product.permalink
     }));
 
-    // لو السؤال عن أبسولوت ومفيش منتجات مطابقة
     if (absolutQuestion && catalog.length === 0) {
       const answer =
-        "لم أجد منتجات Absolut Repair ضمن المنتجات المتاحة حاليًا في المتجر.";
+        "لم أجد منتجات Absolut Repair ضمن المنتجات الموجودة في المتجر حاليًا.";
+
+      await saveChat(
+        currentSessionId,
+        question,
+        answer
+      );
 
       return res.status(200).json({
         success: true,
         answer,
-        sessionId:
-          typeof sessionId === "string"
-            ? sessionId
-            : "session-" + crypto.randomUUID()
+        sessionId: currentSessionId
       });
     }
 
+    // =====================================
     // تعليمات Gemini
+    // =====================================
+
     const prompt = `
 أنت Ask Logvidia، مساعد التسوق الذكي لمتجر Logvidia.
 
-دورك:
-مساعدة العملاء في معرفة المنتجات والأسعار والتوفر والمقارنة بينها.
+مهمتك:
+مساعدة العملاء في البحث عن المنتجات ومعرفة الأسعار والتوفر والمقارنة بينها.
 
-قواعد مهمة جدًا:
+قواعد الإجابة:
 
-1. أجب عن سؤال العميل مباشرة ولا تكرر تعريف نفسك.
-2. لا تقل "أنا مساعد المتجر الذكي" إذا كان العميل يسأل عن منتج.
-3. افهم أسماء المنتجات حتى لو كتبها العميل بالعربية أو الإنجليزية أو بتهجئة غير دقيقة.
-4. كلمة أبسلويت أو أبسولوت أو أبسلويت ريبير قد تشير إلى Absolut Repair.
+1. أجب عن سؤال العميل مباشرة.
+2. لا تكرر تعريف نفسك في كل إجابة.
+3. لا تقل "أنا مساعد المتجر الذكي" إذا كان العميل يسأل عن منتج.
+4. افهم أسماء المنتجات بالعربية والإنجليزية حتى لو كانت مكتوبة بتهجئة غير دقيقة.
 5. ابحث في أسماء المنتجات وأوصافها.
-6. اعرض المنتجات المطابقة للسؤال.
-7. اذكر اسم المنتج وسعره وحالة توفره.
-8. أضف رابط المنتج إذا كان متاحًا.
-9. إذا كان هناك أكثر من منتج مطابق، اعرض الخيارات كلها.
-10. لا تخترع منتجات أو أسعارًا أو معلومات غير موجودة.
-11. إذا كان المنتج غير متوفر، وضح ذلك.
-12. أجب بنفس لغة العميل.
+6. اعرض جميع المنتجات المطابقة لسؤال العميل، وليس منتجًا واحدًا فقط.
+7. إذا طلب العميل المقارنة، قارن بين المنتجات المتاحة.
+8. اذكر السعر وحالة المخزون كما وردا في البيانات.
+9. أضف رابط المنتج عند توفره.
+10. لا تخترع منتجات أو أسعارًا أو معلومات.
+11. إذا لم تجد منتجًا مطابقًا، أخبر العميل بوضوح.
+12. أجب بلغة العميل.
 13. استخدم أسلوبًا مصريًا طبيعيًا وودودًا.
-14. لا تستخدم Markdown أو علامات النجمتين **.
-15. لا تعرض بيانات تقنية أو JSON للعميل.
-16. لا تدّعِ تنفيذ عملية شراء أو تعديل طلب.
-17. إذا لم تجد منتجًا مطابقًا، قل ذلك بوضوح واقترح البحث عن اسم آخر.
+14. لا تستخدم Markdown أو علامات النجمتين.
+15. لا تعرض بيانات JSON أو معلومات تقنية للعميل.
+16. لا تدّعِ أنك نفذت عملية شراء أو تعديل طلب.
+17. إذا سأل العميل عن Absolut Repair، اعرض كل المنتجات المطابقة الموجودة في البيانات.
 
-بيانات المنتجات المتاحة:
+بيانات المنتجات:
 
 ${JSON.stringify(catalog, null, 2)}
 
 سؤال العميل:
-${message.trim()}
 
-أجب عن سؤال العميل باستخدام المنتجات الموجودة في البيانات فقط.
+${question}
+
+أجب مباشرة عن السؤال بالاعتماد على بيانات المتجر فقط.
 `;
 
-    // إرسال السؤال إلى Gemini
+    // =====================================
+    // الاتصال بـ Gemini
+    // =====================================
+
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
@@ -202,7 +318,7 @@ ${message.trim()}
           ],
           generationConfig: {
             temperature: 0.3,
-            maxOutputTokens: 1000
+            maxOutputTokens: 1800
           }
         }),
         signal: AbortSignal.timeout(30000)
@@ -235,38 +351,18 @@ ${message.trim()}
       );
     }
 
-    // إنشاء Session ID
-    const safeSessionId =
-      typeof sessionId === "string" &&
-      /^[a-zA-Z0-9_-]{8,80}$/.test(sessionId)
-        ? sessionId
-        : "session-" + crypto.randomUUID();
+    // حفظ المحادثة
+    await saveChat(
+      currentSessionId,
+      question,
+      answer
+    );
 
-    // حفظ المحادثة في Supabase
-    try {
-      await supabaseRequest("chat_logs", {
-        method: "POST",
-        headers: {
-          Prefer: "return=minimal"
-        },
-        body: JSON.stringify({
-          session_id: safeSessionId,
-          question: message.trim(),
-          answer
-        })
-      });
-    } catch (logError) {
-      console.error(
-        "Chat logging failed:",
-        logError.message
-      );
-    }
-
-    // إرسال الرد للواجهة
+    // إرسال الرد
     return res.status(200).json({
       success: true,
       answer,
-      sessionId: safeSessionId
+      sessionId: currentSessionId
     });
 
   } catch (error) {
