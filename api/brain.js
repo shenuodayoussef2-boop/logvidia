@@ -1,8 +1,37 @@
 
 const { getProducts } = require("./_lib");
 
+const {
+  detectCustomerIntent
+} = require("./intelligence/intent");
+
+const {
+  buildResponseStrategy,
+  buildBehaviorInstructions
+} = require("./intelligence/response-strategy");
+
+const {
+  evaluatePolicyRequest,
+  buildPolicyInstructions
+} = require("./intelligence/policy-guard");
+
+const {
+  analyzeConversationContext
+} = require("./intelligence/context-memory");
+
+const {
+  buildCustomerServicePlan,
+  buildCustomerServiceInstructions
+} = require("./intelligence/customer-service");
+
+const {
+  buildActionPlan,
+  buildActionInstructions,
+  getActionSummary
+} = require("./intelligence/action-engine");
+
 // ==========================================
-// 1. TEXT UNDERSTANDING
+// 1. CORE TEXT ENGINE
 // ==========================================
 
 function normalizeText(value = "") {
@@ -35,81 +64,48 @@ function extractKeywords(message = "") {
 }
 
 // ==========================================
-// 2. INTENT UNDERSTANDING
+// 2. LEGACY INTENT ENGINE
 // ==========================================
 
 const INTENT_PATTERNS = [
   {
     intent: "invoices",
-    patterns: [
-      /فاتور/,
-      /فواتير/,
-      /invoice/,
-      /invoices/
-    ]
+    patterns: [/فاتور/, /فواتير/, /invoice/, /invoices/]
   },
   {
     intent: "reports",
     patterns: [
-      /مبيعات/,
-      /ارباح/,
-      /تقرير/,
-      /احصائيات/,
-      /sales/,
-      /revenue/,
-      /report/
+      /مبيعات/, /ارباح/, /تقرير/, /احصائيات/,
+      /sales/, /revenue/, /report/
     ]
   },
   {
     intent: "orders",
     patterns: [
-      /طلبات/,
-      /طلباتي/,
-      /طلب رقم/,
-      /order/,
-      /orders/,
-      /شحن/,
-      /توصيل/,
-      /تتبع/
+      /طلبات/, /طلباتي/, /طلب رقم/, /order/,
+      /orders/, /شحن/, /توصيل/, /تتبع/
     ]
   },
   {
     intent: "inventory",
     patterns: [
-      /مخزون/,
-      /كميه/,
-      /نفذ/,
-      /ناقص/,
-      /stock/,
-      /inventory/
+      /مخزون/, /كميه/, /نفذ/, /ناقص/,
+      /stock/, /inventory/
     ]
   },
   {
     intent: "manage_products",
     patterns: [
-      /اضف منتج/,
-      /اضافه منتج/,
-      /عدل منتج/,
-      /تعديل منتج/,
-      /احذف منتج/,
-      /حذف منتج/
+      /اضف منتج/, /اضافه منتج/, /عدل منتج/,
+      /تعديل منتج/, /احذف منتج/, /حذف منتج/
     ]
   },
   {
     intent: "products",
     patterns: [
-      /منتج/,
-      /منتجات/,
-      /سعر/,
-      /اسعار/,
-      /بكام/,
-      /خصم/,
-      /متاح/,
-      /متوفر/,
-      /product/,
-      /products/,
-      /price/,
-      /discount/
+      /منتج/, /منتجات/, /سعر/, /اسعار/,
+      /بكام/, /خصم/, /متاح/, /متوفر/,
+      /product/, /products/, /price/, /discount/
     ]
   }
 ];
@@ -127,65 +123,40 @@ function detectIntent(message = "") {
 }
 
 // ==========================================
-// 3. UNDERSTAND THE SPECIFIC REQUEST
+// 3. TASK UNDERSTANDING
 // ==========================================
 
 function detectTask(message = "", intent = "general") {
   const text = normalizeText(message);
 
-  if (
-    /خصم|تخفيض|عروض|discount|sale/.test(text)
-  ) {
+  if (/خصم|تخفيض|عروض|discount|sale/.test(text)) {
     return "find_discounts";
   }
 
-  if (
-    /قارن|مقارنه|الفرق|افضل من|compare|comparison/.test(text)
-  ) {
+  if (/قارن|مقارنه|الفرق|افضل من|compare|comparison/.test(text)) {
     return "compare_products";
   }
 
-  if (
-    /سعر|اسعار|بكام|كام|price|cost/.test(text)
-  ) {
+  if (/سعر|اسعار|بكام|كام|price|cost/.test(text)) {
     return "check_price";
   }
 
-  if (
-    /متاح|متوفر|موجود|availability|available/.test(text)
-  ) {
+  if (/متاح|متوفر|موجود|availability|available/.test(text)) {
     return "check_availability";
   }
 
-  if (intent === "products") {
-    return "search_products";
-  }
-
-  if (intent === "orders") {
-    return "order_inquiry";
-  }
-
-  if (intent === "reports") {
-    return "sales_report";
-  }
-
-  if (intent === "inventory") {
-    return "inventory_inquiry";
-  }
-
-  if (intent === "invoices") {
-    return "invoice_inquiry";
-  }
-
-  if (intent === "manage_products") {
-    return "manage_catalog";
-  }
+  if (intent === "products") return "search_products";
+  if (intent === "orders") return "order_inquiry";
+  if (intent === "reports") return "sales_report";
+  if (intent === "inventory") return "inventory_inquiry";
+  if (intent === "invoices") return "invoice_inquiry";
+  if (intent === "manage_products") return "manage_catalog";
 
   return "general_question";
 }
 
 // ==========================================
-// 4. CONVERSATION CONTEXT
+// 4. CONVERSATION HISTORY
 // ==========================================
 
 function cleanHistory(history = []) {
@@ -243,11 +214,8 @@ function isFollowUp(message = "", history = []) {
     return true;
   }
 
-  const words = text.split(" ").filter(Boolean);
-
-  return words.length <= 4 && Boolean(
-    getPreviousUserMessage(history)
-  );
+  return text.split(" ").filter(Boolean).length <= 4 &&
+    Boolean(getPreviousUserMessage(history));
 }
 
 // ==========================================
@@ -259,8 +227,8 @@ async function getStoreKnowledge() {
     const products = await getProducts();
 
     return {
-      products: products || [],
-      totalProducts: products?.length || 0,
+      products: Array.isArray(products) ? products : [],
+      totalProducts: Array.isArray(products) ? products.length : 0,
       source: "supabase",
       available: true
     };
@@ -277,7 +245,167 @@ async function getStoreKnowledge() {
 }
 
 // ==========================================
-// 6. BUILD THE AGENT PLAN
+// 6. SAFE INTELLIGENCE EXECUTION
+// ==========================================
+
+// يمنع تعطل العقل بالكامل لو وحدة ذكاء حصل فيها خطأ.
+function runModule(name, callback, fallback = null) {
+  try {
+    const result = callback();
+
+    return result === undefined ? fallback : result;
+  } catch (error) {
+    console.error(`Intelligence module error [${name}]:`, error.message);
+    return fallback;
+  }
+}
+
+function getObject(value) {
+  if (!value || typeof value !== "object") return {};
+  return value;
+}
+
+// ==========================================
+// 7. UNIFIED INTELLIGENCE
+// ==========================================
+
+function buildUnifiedIntelligence({
+  message,
+  history,
+  legacyIntent,
+  task,
+  role
+}) {
+  // فهم نية العميل ومشاعره ودرجة الاستعجال.
+  const customerIntent = runModule(
+    "intent",
+    () => detectCustomerIntent(message),
+    {}
+  );
+
+  // فهم سياق المحادثة والرسائل السابقة.
+  const conversationContext = runModule(
+    "context-memory",
+    () => analyzeConversationContext({
+      message,
+      history
+    }),
+    {}
+  );
+
+  // تحليل طبيعة خدمة العملاء: شكوى، اعتراض، مدح...
+  const customerServicePlan = runModule(
+    "customer-service",
+    () => buildCustomerServicePlan({
+      message,
+      intent: customerIntent,
+      history
+    }),
+    {}
+  );
+
+  // اختيار استراتيجية الرد.
+  const responseStrategy = runModule(
+    "response-strategy",
+    () => buildResponseStrategy(
+      customerIntent?.intent || legacyIntent
+    ),
+    {}
+  );
+
+  const behaviorInstructions = runModule(
+    "response-strategy-instructions",
+    () => buildBehaviorInstructions(responseStrategy),
+    ""
+  );
+
+  // تحليل طلبات السياسات.
+  // لا نمرر سياسات غير موثقة أو نخترع بيانات للمتجر.
+  const policyEvaluation = runModule(
+    "policy-guard",
+    () => evaluatePolicyRequest({
+      message,
+      intent: customerIntent,
+      history,
+      policyData: {}
+    }),
+    {}
+  );
+
+  const policyInstructions = runModule(
+    "policy-instructions",
+    () => buildPolicyInstructions(policyEvaluation),
+    ""
+  );
+
+  // تحليل الإجراءات المطلوبة.
+  // العميل لا يحصل على صلاحيات صاحب المتجر.
+  const actionPlan = runModule(
+    "action-engine",
+    () => buildActionPlan({
+      message,
+      role: "customer",
+      isAuthenticated: false,
+      identityVerified: false,
+      approved: false
+    }),
+    null
+  );
+
+  const actionInstructions = actionPlan
+    ? runModule(
+        "action-instructions",
+        () => buildActionInstructions(actionPlan),
+        ""
+      )
+    : "";
+
+  const actionSummary = actionPlan
+    ? runModule(
+        "action-summary",
+        () => getActionSummary(actionPlan),
+        null
+      )
+    : null;
+
+  const customerServiceInstructions = runModule(
+    "customer-service-instructions",
+    () => buildCustomerServiceInstructions(customerServicePlan),
+    ""
+  );
+
+  return {
+    customerIntent: getObject(customerIntent),
+    conversationContext: getObject(conversationContext),
+    customerServicePlan: getObject(customerServicePlan),
+
+    responseStrategy: getObject(responseStrategy),
+
+    instructions: {
+      behavior: behaviorInstructions,
+      customerService: customerServiceInstructions,
+      policy: policyInstructions,
+      actions: actionInstructions
+    },
+
+    policyEvaluation: getObject(policyEvaluation),
+
+    actionPlan,
+    actionSummary,
+
+    analysis: {
+      legacyIntent,
+      task,
+      detectedIntent: customerIntent?.intent || legacyIntent,
+      emotion: customerIntent?.emotion || "neutral",
+      urgency: customerIntent?.urgency || "normal",
+      role
+    }
+  };
+}
+
+// ==========================================
+// 8. BUILD AGENT PLAN
 // ==========================================
 
 function buildPlan({
@@ -343,14 +471,12 @@ function buildPlan({
     keywords,
     requiresStoreData: intent === "products",
     requiresConversationContext: followUp,
-    requiresOwnerApproval: [
-      "manage_products"
-    ].includes(intent)
+    requiresOwnerApproval: intent === "manage_products"
   };
 }
 
 // ==========================================
-// 7. MAIN THINKING ENGINE
+// 9. MAIN MASTER BRAIN
 // ==========================================
 
 async function think({
@@ -370,15 +496,15 @@ async function think({
 
   const safeHistory = cleanHistory(history);
 
-  // This role must come from trusted server-side
-  // authentication, never directly from the browser.
+  // الدور لا يُؤخذ من واجهة المستخدم.
+  // يجب أن يأتي من تحقق موثوق داخل السيرفر.
   const allowedRole =
     role === "owner" ? "owner" : "customer";
 
-  const intent = detectIntent(safeMessage);
+  const normalizedMessage = normalizeText(safeMessage);
 
-  const task = detectTask(safeMessage, intent);
-
+  const legacyIntent = detectIntent(safeMessage);
+  const task = detectTask(safeMessage, legacyIntent);
   const keywords = extractKeywords(safeMessage);
 
   const followUp = isFollowUp(
@@ -390,6 +516,7 @@ async function think({
     safeHistory
   );
 
+  // حماية بيانات المتجر الخاصة.
   const ownerOnlyIntents = [
     "invoices",
     "reports",
@@ -398,48 +525,77 @@ async function think({
     "manage_products"
   ];
 
-  // Protect private store information.
   if (
     allowedRole !== "owner" &&
-    ownerOnlyIntents.includes(intent)
+    ownerOnlyIntents.includes(legacyIntent)
   ) {
     return {
       success: true,
-      intent,
+      intent: legacyIntent,
       task,
       role: "customer",
       requiresAuthorization: true,
       context: null,
       plan: null,
+      intelligence: null,
       message: "هذه المعلومات متاحة لصاحب المتجر فقط."
     };
   }
 
-  // Load product data only when the request needs it.
+  // تشغيل العقل الموحد.
+  const intelligence = buildUnifiedIntelligence({
+    message: safeMessage,
+    history: safeHistory,
+    legacyIntent,
+    task,
+    role: allowedRole
+  });
+
+  // تحميل المنتجات عند الحاجة فقط.
   let knowledge = null;
 
-  if (intent === "products") {
+  if (legacyIntent === "products") {
     knowledge = await getStoreKnowledge();
   }
 
   const plan = buildPlan({
-    intent,
+    intent: legacyIntent,
     task,
     keywords,
     followUp
   });
+
+  // تجميع سياق واحد واضح لنموذج الذكاء الاصطناعي.
+  const context = {
+    currentMessage: safeMessage,
+    normalizedMessage,
+    conversationHistory: safeHistory,
+
+    previousUserMessage: followUp
+      ? previousMessage
+      : null,
+
+    storeKnowledge: knowledge,
+
+    intent: legacyIntent,
+    task,
+    keywords,
+    isFollowUp: followUp,
+
+    intelligence
+  };
 
   return {
     success: true,
 
     role: allowedRole,
 
-    intent,
+    intent: legacyIntent,
     task,
 
     understanding: {
       originalMessage: safeMessage,
-      normalizedMessage: normalizeText(safeMessage),
+      normalizedMessage,
       keywords,
       isFollowUp: followUp,
       previousUserMessage: followUp
@@ -450,31 +606,30 @@ async function think({
     requiresAuthorization: false,
 
     plan,
-
-    context: {
-      currentMessage: safeMessage,
-      conversationHistory: safeHistory,
-      storeKnowledge: knowledge,
-      intent,
-      task,
-      keywords,
-      isFollowUp: followUp
-    }
+    intelligence,
+    context
   };
 }
 
 // ==========================================
-// 8. EXPORTS
+// 10. EXPORTS
 // ==========================================
 
 module.exports = {
   normalizeText,
   extractKeywords,
+
   detectIntent,
   detectTask,
+
   getStoreKnowledge,
+
   cleanHistory,
+  getPreviousUserMessage,
   isFollowUp,
+
   buildPlan,
+  buildUnifiedIntelligence,
+
   think
 };
