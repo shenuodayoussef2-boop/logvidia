@@ -603,7 +603,6 @@ async function requestGeminiWithRetry({
             maxOutputTokens: 1800
           }
         }),
-        signal: AbortSignal.timeout(25000)
       }
     );
 
