@@ -1,0 +1,298 @@
+{
+  "version": 2,
+  "name": "Ask Logvidia Agent",
+  "nodes": [
+    {
+      "id": "node_1",
+      "type": "start",
+      "x": 100,
+      "y": 180,
+      "name": "Start",
+      "instruction": "",
+      "value": ""
+    },
+    {
+      "id": "node_2",
+      "type": "agent",
+      "x": 430,
+      "y": 180,
+      "name": "AI Agent",
+      "instruction": "",
+      "value": ""
+    },
+    {
+      "id": "node_3",
+      "type": "response",
+      "x": 780,
+      "y": 180,
+      "name": "Response",
+      "instruction": "",
+      "value": ""
+    },
+    {
+      "id": "node_4",
+      "type": "start",
+      "x": 300,
+      "y": 180,
+      "name": "Start",
+      "instruction": "",
+      "value": ""
+    },
+    {
+      "id": "node_5",
+      "type": "agent",
+      "x": 300,
+      "y": 180,
+      "name": "AI Agent",
+      "instruction": "أنت Ask Logvidia، المساعد الذكي الرسمي لمتجر Logvidia.\n\nمهمتك:\n1. فهم رسائل العملاء باللهجة المصرية والعربية الفصحى والإنجليزية.\n2. فهم الأخطاء الإملائية واختلاف طرق كتابة الكلمات.\n3. مساعدة العميل في العثور على المنتجات المناسبة.\n4. استخدام بيانات المنتجات الحقيقية عند الإجابة عن الأسعار والخصومات والتوفر.\n5. مساعدة العميل في فهم سياسات الشحن والاستبدال والاسترجاع.\n6. الإجابة بوضوح واختصار وبأسلوب احترافي وودود.\n7. لا تخترع أسعارًا أو منتجات أو معلومات غير موجودة في مصادر البيانات.\n8. إذا لم تعرف الإجابة، وضّح ذلك بدلًا من التخمين.\n9. لا تنفذ أي إجراء إداري دون التحقق من صلاحية المسؤول وموافقته الصريحة.",
+      "value": "language=auto\nmode=customer_service\nstore=Logvidia\napproval_required=true"
+    },
+    {
+      "id": "node_6",
+      "type": "start",
+      "x": 1546,
+      "y": 60,
+      "name": "Start",
+      "instruction": "",
+      "value": ""
+    },
+    {
+      "id": "node_7",
+      "type": "agent",
+      "x": 1311.666748046875,
+      "y": 60,
+      "name": "AI Agent",
+      "instruction": "",
+      "value": ""
+    },
+    {
+      "id": "node_8",
+      "type": "response",
+      "x": 1058.3333435058594,
+      "y": 60,
+      "name": "Response",
+      "instruction": "",
+      "value": ""
+    },
+    {
+      "id": "node_9",
+      "type": "products",
+      "x": 1060.3333129882812,
+      "y": 204.00003051757812,
+      "name": "Store Products",
+      "instruction": "اجلب بيانات المنتجات من واجهة API الخاصة بمتجر Logvidia.\nاستخدم الأسعار والخصومات وحالة المخزون كما وردت في البيانات.\nلا تخترع منتجات أو أسعارًا.",
+      "value": "source=Logvidia_API\nendpoint=/api/products\ndata_type=products\nuse_live_data=true"
+    },
+    {
+      "id": "node_10",
+      "type": "knowledge",
+      "x": 1307.9999389648438,
+      "y": 211.99993896484375,
+      "name": "Knowledge Base",
+      "instruction": "أنت قاعدة المعرفة الخاصة بمتجر Logvidia.\nاحتفظ بمعلومات سياسات المتجر والشحن والاستبدال والاسترجاع.\nأجب عن أسئلة العملاء باستخدام المعلومات المتاحة فقط.\nإذا كانت معلومة غير موجودة، اطلب من العميل التواصل مع خدمة العملاء.\nلا تخترع أي سياسة أو معلومة.",
+      "value": "source=store_knowledge\nstore=Logvidia\ntopics=shipping,returns,refunds,exchange,policies\nlanguage=auto"
+    },
+    {
+      "id": "node_11",
+      "type": "condition",
+      "x": 1566.3333129882812,
+      "y": 238,
+      "name": "Condition",
+      "instruction": "حدد نوع رسالة العميل:\n- product: سؤال عن منتج أو سعر أو خصم أو مخزون.\n- shipping: سؤال عن الشحن أو التوصيل.\n- return: سؤال عن الاستبدال أو الاسترجاع.\n- other: أي سؤال آخر.\n\nلا تخمّن إذا كانت الرسالة غير واضحة.",
+      "value": "condition_type=customer_intent\nbranches=product,shipping,return,other"
+    },
+    {
+      "id": "node_12",
+      "type": "approval",
+      "x": 1066.3333435058594,
+      "y": 414.3333435058594,
+      "name": "Human Approval",
+      "instruction": "اطلب موافقة صاحب متجر Logvidia قبل تنفيذ أي إجراء إداري حساس، مثل تعديل المنتجات أو الأسعار أو المخزون أو الطلبات.\n\nلا تنفذ الإجراء قبل الحصول على موافقة صريحة من المسؤول المصرح له.\n\nإذا لم تتوفر الموافقة، أوقف التنفيذ.",
+      "value": "approval_required=true\napprover=store_owner\napproval_mode=explicit"
+    },
+    {
+      "id": "node_13",
+      "type": "action",
+      "x": 1311.6666870117188,
+      "y": 475.6666450500488,
+      "name": "Action",
+      "instruction": "نفّذ الإجراءات المسموح بها فقط بعد التحقق من صلاحيات المستخدم.\n\nالإجراءات المتاحة مستقبلًا:\n1. البحث عن طلب.\n2. عرض تفاصيل الطلب للمسؤول المصرح له.\n3. مراجعة المخزون.\n4. تعديل بيانات منتج بعد موافقة صاحب المتجر.\n5. تحديث حالة طلب بعد موافقة صاحب المتجر.\n\nلا تنفذ أي إجراء غير مصرح به.\nلا تعتبر موافقة العميل موافقة من صاحب المتجر.",
+      "value": "execution_mode=server\nauthentication=required\napproval_required=true"
+    }
+  ],
+  "connections": [
+    {
+      "from": "node_1",
+      "to": "node_2"
+    },
+    {
+      "from": "node_2",
+      "to": "node_3"
+    },
+    {
+      "from": "node_6",
+      "to": "node_7"
+    },
+    {
+      "from": "node_7",
+      "to": "node_8"
+    },
+    {
+      "from": "node_9",
+      "to": "node_7"
+    },
+    {
+      "from": "node_9",
+      "to": "node_8"
+    },
+    {
+      "from": "node_7",
+      "to": "node_9"
+    },
+    {
+      "from": "node_6",
+      "to": "node_9"
+    },
+    {
+      "from": "node_6",
+      "to": "node_10"
+    },
+    {
+      "from": "node_7",
+      "to": "node_10"
+    },
+    {
+      "from": "node_9",
+      "to": "node_10"
+    },
+    {
+      "from": "node_6",
+      "to": "node_8"
+    },
+    {
+      "from": "node_10",
+      "to": "node_7"
+    },
+    {
+      "from": "node_10",
+      "to": "node_11"
+    },
+    {
+      "from": "node_11",
+      "to": "node_9"
+    },
+    {
+      "from": "node_6",
+      "to": "node_11"
+    },
+    {
+      "from": "node_11",
+      "to": "node_7"
+    },
+    {
+      "from": "node_11",
+      "to": "node_10"
+    },
+    {
+      "from": "node_11",
+      "to": "node_8"
+    },
+    {
+      "from": "node_7",
+      "to": "node_11"
+    },
+    {
+      "from": "node_12",
+      "to": "node_10"
+    },
+    {
+      "from": "node_10",
+      "to": "node_12"
+    },
+    {
+      "from": "node_12",
+      "to": "node_11"
+    },
+    {
+      "from": "node_12",
+      "to": "node_7"
+    },
+    {
+      "from": "node_6",
+      "to": "node_12"
+    },
+    {
+      "from": "node_12",
+      "to": "node_8"
+    },
+    {
+      "from": "node_12",
+      "to": "node_9"
+    },
+    {
+      "from": "node_9",
+      "to": "node_12"
+    },
+    {
+      "from": "node_9",
+      "to": "node_11"
+    },
+    {
+      "from": "node_10",
+      "to": "node_9"
+    },
+    {
+      "from": "node_10",
+      "to": "node_8"
+    },
+    {
+      "from": "node_7",
+      "to": "node_12"
+    },
+    {
+      "from": "node_12",
+      "to": "node_13"
+    },
+    {
+      "from": "node_13",
+      "to": "node_10"
+    },
+    {
+      "from": "node_13",
+      "to": "node_11"
+    },
+    {
+      "from": "node_11",
+      "to": "node_13"
+    },
+    {
+      "from": "node_6",
+      "to": "node_13"
+    },
+    {
+      "from": "node_10",
+      "to": "node_13"
+    },
+    {
+      "from": "node_9",
+      "to": "node_13"
+    },
+    {
+      "from": "node_13",
+      "to": "node_8"
+    },
+    {
+      "from": "node_7",
+      "to": "node_13"
+    },
+    {
+      "from": "node_13",
+      "to": "node_7"
+    },
+    {
+      "from": "node_13",
+      "to": "node_9"
+    }
+  ],
+  "exportedAt": "2026-11-15T15:50:03.245Z"
+}
