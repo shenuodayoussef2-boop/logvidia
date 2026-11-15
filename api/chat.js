@@ -571,6 +571,69 @@ function createActionPlan(message) {
 }
 
 // ======================================
+// GEMINI REQUEST HELPER
+// ======================================
+
+async function requestGeminiWithRetry({
+  model,
+  apiKey,
+  prompt,
+  maxAttempts = 3
+}) {
+  let response;
+  let result;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 1800
+          }
+        }),
+        signal: AbortSignal.timeout(25000)
+      }
+    );
+
+    result = await response.json();
+
+    if (response.ok) {
+      return { response, result };
+    }
+
+    const temporaryUnavailable =
+      response.status === 503 &&
+      result?.error?.status === "UNAVAILABLE";
+
+    if (!temporaryUnavailable || attempt === maxAttempts) {
+      break;
+    }
+
+    console.warn(
+      `Gemini temporarily unavailable. Retry ${attempt}/${maxAttempts - 1}`
+    );
+
+    await new Promise(resolve =>
+      setTimeout(resolve, attempt * 800)
+    );
+  }
+
+  return { response, result };
+}
+
+// ======================================
 // MAIN API
 // ======================================
 
@@ -1121,33 +1184,15 @@ ${question}
 `;
 
     // ======================================
-    // GEMINI REQUEST
+    // GEMINI REQUEST WITH AUTOMATIC RETRY
     // ======================================
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: prompt }]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 1800
-          }
-        }),
-        signal: AbortSignal.timeout(25000)
-      }
-    );
-
-    const result = await response.json();
+    const { response, result } = await requestGeminiWithRetry({
+      model,
+      apiKey,
+      prompt,
+      maxAttempts: 3
+    });
 
     if (!response.ok) {
       console.error("Gemini error:", response.status, result);
@@ -1156,6 +1201,13 @@ ${question}
         return res.status(503).json({
           success: false,
           error: "وصل المساعد إلى حد الاستخدام الحالي. حاول مرة أخرى لاحقًا."
+        });
+      }
+
+      if (response.status === 503) {
+        return res.status(503).json({
+          success: false,
+          error: "خدمة الذكاء الاصطناعي مشغولة حاليًا. حاول مرة أخرى بعد قليل."
         });
       }
 
