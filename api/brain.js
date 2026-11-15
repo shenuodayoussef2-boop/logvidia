@@ -74,13 +74,13 @@ const INTENT_PATTERNS = [
       /sales/, /revenue/, /report/
     ]
   },
-  {
-    intent: "orders",
-    patterns: [
-      /طلبات/, /طلباتي/, /طلب رقم/, /order/,
-      /orders/, /شحن/, /توصيل/, /تتبع/
-    ]
-  },
+{
+  intent: "orders",
+  patterns: [
+    /طلبات/, /طلباتي/, /طلب رقم/, /order/,
+    /orders/, /تتبع/
+  ]
+},
   {
     intent: "inventory",
     patterns: [
