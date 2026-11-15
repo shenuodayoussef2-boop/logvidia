@@ -4,297 +4,284 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ask Logvidia | Admin Dashboard</title>
+<title>LOGVIDIA | Admin</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
-
-:root {
-  --bg:#090d16;
-  --panel:#111827;
-  --panel2:#151f30;
-  --border:#263247;
-  --text:#f4f6fb;
-  --muted:#8995a9;
-  --gold:#d8ad58;
-  --blue:#5689ef;
-  --green:#36c995;
+:root{
+--bg:#090d16;--panel:#111827;--panel2:#172235;
+--border:#263247;--text:#f4f6fb;--muted:#8995a9;
+--gold:#d8ad58;--green:#36c995;
 }
 *{box-sizing:border-box}
-body{
-  margin:0;background:var(--bg);color:var(--text);
-  font-family:'Cairo',sans-serif;min-height:100vh;
+body{margin:0;background:var(--bg);color:var(--text);font-family:Cairo,sans-serif}
+button,input{font-family:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+#loginScreen{
+min-height:100vh;display:grid;place-items:center;padding:20px;
+background:radial-gradient(circle at top,#1b2b40,transparent 55%);
 }
-button{font-family:inherit;cursor:pointer}
-.layout{display:flex;min-height:100vh}
-.sidebar{
-  width:255px;background:#0d1421;border-left:1px solid var(--border);
-  padding:25px 16px;position:fixed;right:0;top:0;bottom:0;
-  overflow-y:auto;z-index:5;
+.login-card{
+width:100%;max-width:390px;background:var(--panel);
+border:1px solid var(--border);border-radius:19px;padding:30px;
+box-shadow:0 20px 80px #0005;
 }
-.brand{display:flex;align-items:center;gap:12px;padding:0 10px 28px}
 .logo{
-  width:43px;height:43px;border-radius:13px;
-  background:linear-gradient(135deg,#e7c477,#98702d);
-  display:grid;place-items:center;color:#111;font-size:22px;font-weight:900;
+width:55px;height:55px;border-radius:16px;
+display:grid;place-items:center;background:var(--gold);
+color:#111;font-size:27px;font-weight:900;margin-bottom:20px;
 }
-.brand h2{font-size:17px;margin:0}
-.brand small{color:var(--muted);font-size:11px}
-.section-label{color:#66748b;font-size:11px;padding:12px 13px 7px}
+.login-card h1{font-size:22px;margin:0 0 5px}
+.login-card p{color:var(--muted);font-size:12px;margin:0 0 25px}
+.login-card label{font-size:12px;display:block;margin-bottom:8px}
+.login-card input{
+width:100%;padding:13px;background:#0b1320;
+border:1px solid var(--border);border-radius:10px;
+color:white;outline:none;margin-bottom:14px;
+}
+.login-card input:focus{border-color:var(--gold)}
+.primary{
+background:var(--gold);color:#17130b;border:0;
+border-radius:10px;padding:12px 16px;font-weight:800;
+}
+.login-card button{width:100%}
+#loginMessage{font-size:12px;color:#ff8585;margin-top:13px;min-height:20px}
+#dashboard{min-height:100vh}
+.sidebar{
+position:fixed;right:0;top:0;bottom:0;width:250px;
+background:#0d1421;border-left:1px solid var(--border);
+padding:22px 15px;overflow-y:auto;
+}
+.brand{display:flex;align-items:center;gap:12px;padding:0 9px 27px}
+.brand-logo{
+width:43px;height:43px;border-radius:13px;background:var(--gold);
+color:#111;display:grid;place-items:center;font-size:22px;font-weight:900
+}
+.brand h2{font-size:16px;margin:0}
+.brand small{font-size:10px;color:var(--muted)}
+.section-label{font-size:11px;color:#68758a;padding:12px}
 .nav-item{
-  display:flex;align-items:center;gap:12px;padding:11px 13px;
-  color:#aab5c7;border-radius:10px;margin:4px 0;
-  cursor:pointer;transition:.2s;font-size:13px;
+padding:11px 12px;margin:4px 0;border-radius:10px;
+color:#aab5c7;cursor:pointer;font-size:13px;
 }
-.nav-item:hover,.nav-item.active{
-  background:#1b293d;color:var(--gold);
-}
-.nav-item .ico{width:22px;text-align:center;font-size:17px}
-.sidebar-bottom{
-  border-top:1px solid var(--border);margin-top:25px;padding-top:18px;
-}
-.main{margin-right:255px;width:calc(100% - 255px);padding:27px 32px}
+.nav-item:hover,.nav-item.active{background:#1b293d;color:var(--gold)}
+.main{margin-right:250px;padding:25px 30px}
 .topbar{
-  display:flex;justify-content:space-between;align-items:center;
-  gap:15px;margin-bottom:30px;
+display:flex;align-items:center;justify-content:space-between;
+gap:12px;margin-bottom:25px;
 }
-.page-title h1{font-size:23px;margin:0 0 4px}
-.page-title p{color:var(--muted);font-size:12px;margin:0}
-.status{
-  background:#12342d;color:var(--green);border:1px solid #205344;
-  padding:7px 12px;border-radius:20px;font-size:11px;
-}
-.avatar{
-  width:39px;height:39px;border-radius:50%;background:#24334b;
-  display:grid;place-items:center;color:var(--gold);font-weight:bold;
-}
-.top-actions{display:flex;align-items:center;gap:12px}
+.topbar h1{font-size:22px;margin:0}
+.topbar p{font-size:11px;color:var(--muted);margin:3px 0}
+.top-actions{display:flex;align-items:center;gap:10px}
+.status{font-size:11px;color:var(--green)}
+.logout{background:#222d40;color:#fff;border:1px solid var(--border);padding:8px 12px;border-radius:9px}
 .page{display:none}
 .page.active{display:block}
 .welcome{
-  background:linear-gradient(110deg,#18283c,#172033 60%,#252033);
-  border:1px solid #34445c;border-radius:17px;padding:24px;
-  margin-bottom:22px;
+padding:23px;border-radius:15px;margin-bottom:18px;
+background:linear-gradient(110deg,#18283c,#252033);
+border:1px solid #34445c;
 }
-.welcome h2{margin:0 0 7px;font-size:19px}
-.welcome p{color:#aab7ca;font-size:12px;margin:0}
-.stats{
-  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
-  gap:15px;margin-bottom:22px;
-}
+.welcome h2{margin:0 0 5px;font-size:18px}
+.welcome p{margin:0;color:#aab7ca;font-size:12px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:18px}
 .stat,.panel{
-  background:var(--panel);border:1px solid var(--border);
-  border-radius:14px;padding:19px;
+background:var(--panel);border:1px solid var(--border);
+border-radius:14px;padding:18px;
 }
-.stat-top{display:flex;justify-content:space-between;align-items:center}
-.stat-icon{
-  width:37px;height:37px;border-radius:10px;background:#202e43;
-  display:grid;place-items:center;font-size:18px;
-}
-.stat-label{color:var(--muted);font-size:12px}
-.stat-value{font-size:25px;font-weight:800;margin:13px 0 3px}
+.stat-label{font-size:11px;color:var(--muted)}
+.stat-value{font-size:24px;font-weight:800;margin-top:10px}
 .stat-note{font-size:10px;color:var(--muted)}
-.panel{margin-bottom:18px}
-.panel-head{
-  display:flex;justify-content:space-between;align-items:center;
-  gap:10px;margin-bottom:16px
-}
-.panel-head h3{font-size:14px;margin:0}
-.panel-head small{color:var(--muted);font-size:11px}
-.quick-grid{
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px
-}
+.panel{margin-bottom:17px}
+.panel h3{font-size:14px;margin:0 0 15px}
+.quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .quick{
-  background:var(--panel2);border:1px solid var(--border);
-  border-radius:12px;padding:17px;text-align:right;color:var(--text);
+background:var(--panel2);border:1px solid var(--border);
+padding:16px;border-radius:12px;text-align:right;color:white;
 }
 .quick:hover{border-color:var(--gold)}
-.quick span{font-size:22px}
-.quick h4{margin:9px 0 3px;font-size:13px}
-.quick p{margin:0;color:var(--muted);font-size:11px}
-.empty{
-  text-align:center;padding:35px 10px;color:var(--muted);font-size:12px
-}
-.empty strong{display:block;color:#dce3ef;font-size:14px;margin-bottom:7px}
-.primary{
-  background:var(--gold);color:#15120b;border:0;
-  padding:9px 15px;border-radius:9px;font-weight:800;font-size:12px
-}
-.secondary{
-  background:#202d40;color:#dce5f3;border:1px solid var(--border);
-  padding:8px 13px;border-radius:9px;font-size:11px
-}
+.quick strong{display:block;margin:8px 0;font-size:13px}
+.quick small{color:var(--muted);font-size:11px}
+.empty{text-align:center;color:var(--muted);padding:30px 10px;font-size:12px}
 .notice{
-  color:#a9b7ca;background:#172438;border:1px solid #2b405e;
-  padding:13px;border-radius:10px;font-size:11px;line-height:1.9
+background:#172438;border:1px solid #2b405e;
+padding:12px;border-radius:10px;color:#a9b7ca;
+font-size:11px;line-height:1.9;
 }
-@media(max-width:1000px){
-  .stats{grid-template-columns:repeat(2,1fr)}
-  .quick-grid{grid-template-columns:repeat(2,1fr)}
-}
-@media(max-width:700px){
-  .sidebar{width:70px;padding:18px 8px}
-  .brand{padding:0 5px 25px}
-  .brand div:last-child,.nav-item .nav-text,.section-label,.sidebar-bottom .nav-text{display:none}
-  .nav-item{justify-content:center;padding:12px 5px}
-  .nav-item .ico{font-size:19px}
-  .main{margin-right:70px;width:calc(100% - 70px);padding:20px 13px}
-  .topbar{align-items:flex-start}
-  .page-title h1{font-size:18px}
-  .stats{gap:9px}
-  .stat{padding:13px}
-  .stat-value{font-size:21px}
-  .quick-grid{grid-template-columns:1fr}
+@media(max-width:950px){.stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:650px){
+.sidebar{width:65px;padding:15px 6px}
+.brand{padding:0 4px 25px}
+.brand>div:last-child,.section-label,.nav-text{display:none}
+.nav-item{text-align:center;padding:12px 3px;font-size:18px}
+.main{margin-right:65px;padding:17px 12px}
+.topbar h1{font-size:17px}
+.quick-grid{grid-template-columns:1fr}
+.stats{gap:8px}
+.stat{padding:12px}
 }
 </style>
 </head>
 <body>
-<div class="layout">
 
-<aside class="sidebar">
-  <div class="brand">
+<section id="loginScreen">
+  <div class="login-card">
     <div class="logo">L</div>
-    <div>
-      <h2>LOGVIDIA</h2>
-      <small>ASK LOGVIDIA CONTROL</small>
-    </div>
+    <h1>تسجيل دخول الإدارة</h1>
+    <p>ASK LOGVIDIA CONTROL PANEL</p>
+    <form id="loginForm">
+      <label for="password">كلمة مرور المسؤول</label>
+      <input id="password" type="password" autocomplete="current-password"
+      placeholder="أدخل كلمة المرور" required maxlength="200">
+      <button class="primary" id="loginButton" type="submit">تسجيل الدخول</button>
+    </form>
+    <div id="loginMessage" role="status"></div>
   </div>
+</section>
 
-  <div class="section-label">الرئيسية</div>
-  <div class="nav-item active" data-page="overview"><span class="ico">◫</span><span class="nav-text">نظرة عامة</span></div>
-
-  <div class="section-label">إدارة الوكيل</div>
-  <div class="nav-item" data-page="agent"><span class="ico">✦</span><span class="nav-text">الوكيل الذكي</span></div>
-  <div class="nav-item" data-page="products"><span class="ico">▣</span><span class="nav-text">المنتجات</span></div>
-  <div class="nav-item" data-page="knowledge"><span class="ico">▤</span><span class="nav-text">قاعدة المعرفة</span></div>
-  <div class="nav-item" data-page="conversations"><span class="ico">☷</span><span class="nav-text">المحادثات</span></div>
-
-  <div class="section-label">التسويق والإدارة</div>
-  <div class="nav-item" data-page="social"><span class="ico">◉</span><span class="nav-text">إدارة المنشورات</span></div>
-  <div class="nav-item" data-page="analytics"><span class="ico">▥</span><span class="nav-text">التحليلات والتقارير</span></div>
-  <div class="nav-item" data-page="approvals"><span class="ico">✓</span><span class="nav-text">الموافقات</span></div>
-
-  <div class="sidebar-bottom">
-    <div class="nav-item" data-page="settings"><span class="ico">⚙</span><span class="nav-text">الإعدادات</span></div>
-  </div>
-</aside>
-
-<main class="main">
-  <header class="topbar">
-    <div class="page-title">
-      <h1 id="pageTitle">نظرة عامة</h1>
-      <p>مركز إدارة Ask Logvidia</p>
-    </div>
-    <div class="top-actions">
-      <span class="status">● النظام جاهز للتهيئة</span>
-      <div class="avatar">L</div>
-    </div>
-  </header>
-
-  <section class="page active" id="overview">
-    <div class="welcome">
-      <h2>مرحباً بك في لوحة تحكم Ask Logvidia</h2>
-      <p>من هنا ستتمكن من إدارة الوكيل والمنتجات والمحتوى والتقارير من مكان واحد.</p>
+<div id="dashboard" class="hidden">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">L</div>
+      <div><h2>LOGVIDIA</h2><small>ADMIN CONTROL</small></div>
     </div>
 
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-top"><span class="stat-label">المنتجات</span><span class="stat-icon">▣</span></div>
-        <div class="stat-value">—</div><div class="stat-note">بانتظار ربط البيانات</div>
+    <div class="section-label">الرئيسية</div>
+    <div class="nav-item active" data-page="overview">◫ <span class="nav-text">نظرة عامة</span></div>
+
+    <div class="section-label">إدارة الوكيل</div>
+    <div class="nav-item" data-page="agent">✦ <span class="nav-text">الوكيل الذكي</span></div>
+    <div class="nav-item" data-page="products">▣ <span class="nav-text">المنتجات</span></div>
+    <div class="nav-item" data-page="knowledge">▤ <span class="nav-text">قاعدة المعرفة</span></div>
+    <div class="nav-item" data-page="conversations">☷ <span class="nav-text">المحادثات</span></div>
+
+    <div class="section-label">التسويق والإدارة</div>
+    <div class="nav-item" data-page="social">◉ <span class="nav-text">إدارة المنشورات</span></div>
+    <div class="nav-item" data-page="analytics">▥ <span class="nav-text">التحليلات والتقارير</span></div>
+    <div class="nav-item" data-page="approvals">✓ <span class="nav-text">الموافقات</span></div>
+
+    <div class="section-label">النظام</div>
+    <div class="nav-item" data-page="settings">⚙ <span class="nav-text">الإعدادات</span></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h1 id="pageTitle">نظرة عامة</h1>
+        <p>مركز إدارة Ask Logvidia</p>
       </div>
-      <div class="stat">
-        <div class="stat-top"><span class="stat-label">المحادثات</span><span class="stat-icon">☷</span></div>
-        <div class="stat-value">—</div><div class="stat-note">بانتظار ربط البيانات</div>
+      <div class="top-actions">
+        <span class="status">● مسؤول مسجل الدخول</span>
+        <button class="logout" id="logoutButton">تسجيل الخروج</button>
       </div>
-      <div class="stat">
-        <div class="stat-top"><span class="stat-label">المنشورات</span><span class="stat-icon">◉</span></div>
-        <div class="stat-value">0</div><div class="stat-note">لم يتم إنشاء منشورات بعد</div>
+    </header>
+
+    <section class="page active" id="overview">
+      <div class="welcome">
+        <h2>مرحباً بك في لوحة إدارة Logvidia</h2>
+        <p>إدارة الوكيل والمنتجات والمحتوى من مكان واحد.</p>
       </div>
-      <div class="stat">
-        <div class="stat-top"><span class="stat-label">الموافقات المعلقة</span><span class="stat-icon">✓</span></div>
-        <div class="stat-value">0</div><div class="stat-note">لا توجد بيانات مرتبطة بعد</div>
+
+      <div class="stats">
+        <div class="stat"><div class="stat-label">المنتجات</div><div class="stat-value">—</div><div class="stat-note">بانتظار ربط البيانات</div></div>
+        <div class="stat"><div class="stat-label">المحادثات</div><div class="stat-value">—</div><div class="stat-note">بانتظار ربط البيانات</div></div>
+        <div class="stat"><div class="stat-label">المنشورات</div><div class="stat-value">0</div><div class="stat-note">لا توجد بيانات بعد</div></div>
+        <div class="stat"><div class="stat-label">الموافقات</div><div class="stat-value">0</div><div class="stat-note">لا توجد طلبات بعد</div></div>
       </div>
-    </div>
 
-    <div class="panel">
-      <div class="panel-head"><h3>الوصول السريع</h3><small>أهم أقسام النظام</small></div>
-      <div class="quick-grid">
-        <button class="quick" onclick="showPage('agent')"><span>✦</span><h4>إعداد الوكيل</h4><p>إدارة سلوك ومهام الذكاء الاصطناعي</p></button>
-        <button class="quick" onclick="showPage('knowledge')"><span>▤</span><h4>قاعدة المعرفة</h4><p>إضافة معلومات وسياسات المتجر</p></button>
-        <button class="quick" onclick="showPage('social')"><span>◉</span><h4>إنشاء منشور</h4><p>تجهيز محتوى صفحات التواصل</p></button>
+      <div class="panel">
+        <h3>الوصول السريع</h3>
+        <div class="quick-grid">
+          <button class="quick" onclick="showPage('agent')">✦<strong>إعداد الوكيل</strong><small>إدارة سلوك الوكيل</small></button>
+          <button class="quick" onclick="showPage('knowledge')">▤<strong>قاعدة المعرفة</strong><small>معلومات وسياسات المتجر</small></button>
+          <button class="quick" onclick="showPage('social')">◉<strong>إنشاء منشور</strong><small>تجهيز محتوى التواصل</small></button>
+        </div>
       </div>
-    </div>
+      <div class="notice">لوحة التحكم متصلة الآن بخدمة التحقق من الجلسة. بيانات الأقسام ستُربط في مراحل لاحقة.</div>
+    </section>
 
-    <div class="panel">
-      <div class="panel-head"><h3>حالة النظام</h3><small>حالة الواجهة الحالية</small></div>
-      <div class="notice">تم تحميل واجهة لوحة التحكم بنجاح. الأرقام والبيانات المعروضة ليست بيانات حقيقية؛ سيتم ربطها بقاعدة البيانات في الخطوات القادمة.</div>
-    </div>
-  </section>
-
-  <section class="page" id="agent">
-    <div class="panel">
-      <div class="panel-head"><h3>إدارة الوكيل الذكي</h3></div>
-      <div class="empty"><strong>مركز إعداد Ask Logvidia</strong>سيتم ربط إعدادات الوكيل ومحرك الذكاء الاصطناعي هنا.</div>
-    </div>
-  </section>
-
-  <section class="page" id="products">
-    <div class="panel">
-      <div class="panel-head"><h3>إدارة المنتجات</h3><button class="secondary">مزامنة المنتجات</button></div>
-      <div class="empty"><strong>قائمة المنتجات</strong>سيتم عرض منتجات المتجر وأسعارها ومخزونها بعد ربط قاعدة البيانات.</div>
-    </div>
-  </section>
-
-  <section class="page" id="knowledge">
-    <div class="panel">
-      <div class="panel-head"><h3>قاعدة المعرفة</h3><button class="primary" onclick="alert('سنضيف محرر المعرفة في المرحلة التالية')">إضافة معلومة</button></div>
-      <div class="empty"><strong>معلومات وسياسات المتجر</strong>الشحن، الاستبدال، الاسترجاع، والأسئلة الشائعة.</div>
-    </div>
-  </section>
-
-  <section class="page" id="conversations">
-    <div class="panel">
-      <div class="panel-head"><h3>المحادثات</h3></div>
-      <div class="empty"><strong>سجل المحادثات</strong>سيتم ربطه بسجل المحادثات الحقيقي.</div>
-    </div>
-  </section>
-
-  <section class="page" id="social">
-    <div class="panel">
-      <div class="panel-head"><h3>إدارة المنشورات</h3><button class="primary" onclick="alert('سننشئ محرر المنشورات في الخطوة التالية')">+ إنشاء منشور</button></div>
-      <div class="empty"><strong>مركز إدارة المحتوى</strong>إنشاء المنشورات ومراجعتها قبل نشرها على صفحة Facebook.</div>
-      <div class="notice">النشر الفعلي يحتاج ربط Meta الرسمي وصلاحيات الصفحة وموافقة المسؤول. هذه الواجهة وحدها لا تنشر أي شيء.</div>
-    </div>
-  </section>
-
-  <section class="page" id="analytics">
-    <div class="panel">
-      <div class="panel-head"><h3>التحليلات والتقارير</h3></div>
-      <div class="empty"><strong>تقارير الأداء</strong>سيتم عرض إحصائيات حقيقية بعد ربط مصادر البيانات.</div>
-    </div>
-  </section>
-
-  <section class="page" id="approvals">
-    <div class="panel">
-      <div class="panel-head"><h3>مركز الموافقات</h3></div>
-      <div class="empty"><strong>لا توجد طلبات مرتبطة بعد</strong>ستظهر هنا الإجراءات والمنشورات التي تحتاج موافقة المسؤول.</div>
-    </div>
-  </section>
-
-  <section class="page" id="settings">
-    <div class="panel">
-      <div class="panel-head"><h3>إعدادات النظام</h3></div>
-      <div class="empty"><strong>إعدادات Ask Logvidia</strong>سيتم إضافة إعدادات الحساب والربط والصلاحيات لاحقاً.</div>
-      <div class="notice">ملاحظة أمنية: لوحة الإدارة الحالية واجهة أولية فقط وليست محمية بتسجيل دخول إداري. لا تستخدمها لتنفيذ عمليات حساسة قبل إضافة التحقق من الصلاحيات على الخادم.</div>
-    </div>
-  </section>
-</main>
+    <section class="page" id="agent"><div class="panel"><h3>الوكيل الذكي</h3><div class="empty">إعدادات وسلوك Ask Logvidia ستظهر هنا.</div></div></section>
+    <section class="page" id="products"><div class="panel"><h3>المنتجات</h3><div class="empty">سيتم ربط المنتجات الحقيقية من المتجر.</div></div></section>
+    <section class="page" id="knowledge"><div class="panel"><h3>قاعدة المعرفة</h3><div class="empty">إدارة سياسات الشحن والاستبدال والاسترجاع والأسئلة الشائعة.</div></div></section>
+    <section class="page" id="conversations"><div class="panel"><h3>المحادثات</h3><div class="empty">سجل محادثات العملاء.</div></div></section>
+    <section class="page" id="social"><div class="panel"><h3>إدارة المنشورات</h3><div class="empty">إنشاء ومراجعة منشورات Facebook قبل النشر.</div><div class="notice">النشر الفعلي يحتاج تكامل Meta الرسمي وصلاحيات الصفحة وموافقة المسؤول.</div></div></section>
+    <section class="page" id="analytics"><div class="panel"><h3>التحليلات والتقارير</h3><div class="empty">تقارير الأداء والإحصائيات.</div></div></section>
+    <section class="page" id="approvals"><div class="panel"><h3>الموافقات</h3><div class="empty">الطلبات التي تحتاج موافقة المسؤول.</div></div></section>
+    <section class="page" id="settings"><div class="panel"><h3>الإعدادات</h3><div class="empty">إعدادات النظام والربط والصلاحيات.</div></div></section>
+  </main>
 </div>
 
 <script>
+const loginScreen = document.getElementById("loginScreen");
+const dashboard = document.getElementById("dashboard");
+const loginForm = document.getElementById("loginForm");
+const loginButton = document.getElementById("loginButton");
+const loginMessage = document.getElementById("loginMessage");
+const passwordInput = document.getElementById("password");
+
+async function apiRequest(action, password) {
+  const response = await fetch("/api/admin-auth", {
+    method: action === "check" ? "GET" : "POST",
+    credentials: "same-origin",
+    headers: {"Content-Type":"application/json"},
+    ...(action === "check" ? {} : {
+      body: JSON.stringify({action, password})
+    })
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.message || "حدث خطأ في الاتصال بالخادم.");
+  }
+
+  return data;
+}
+
+function showLogin(message = "") {
+  dashboard.classList.add("hidden");
+  loginScreen.classList.remove("hidden");
+  loginMessage.textContent = message;
+  passwordInput.value = "";
+}
+
+function showDashboard() {
+  loginScreen.classList.add("hidden");
+  dashboard.classList.remove("hidden");
+}
+
+loginForm.addEventListener("submit", async event => {
+  event.preventDefault();
+
+  loginButton.disabled = true;
+  loginButton.textContent = "جارٍ التحقق...";
+  loginMessage.textContent = "";
+
+  try {
+    await apiRequest("login", passwordInput.value);
+    passwordInput.value = "";
+    showDashboard();
+  } catch (error) {
+    showLogin(error.message);
+  } finally {
+    loginButton.disabled = false;
+    loginButton.textContent = "تسجيل الدخول";
+  }
+});
+
+document.getElementById("logoutButton").addEventListener("click", async () => {
+  try {
+    await apiRequest("logout");
+  } catch (error) {
+    console.error(error);
+  }
+  showLogin("تم تسجيل الخروج.");
+});
+
 const titles = {
   overview:"نظرة عامة",
   agent:"الوكيل الذكي",
-  products:"إدارة المنتجات",
+  products:"المنتجات",
   knowledge:"قاعدة المعرفة",
   conversations:"المحادثات",
   social:"إدارة المنشورات",
@@ -303,22 +290,41 @@ const titles = {
   settings:"الإعدادات"
 };
 
-function showPage(id){
-  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
-  document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
+function showPage(id) {
+  if (!titles[id]) return;
 
-  const page=document.getElementById(id);
-  if(!page || !titles[id]) return;
+  document.querySelectorAll(".page").forEach(page =>
+    page.classList.remove("active")
+  );
 
-  page.classList.add("active");
-  document.getElementById("pageTitle").textContent=titles[id];
+  document.querySelectorAll(".nav-item").forEach(item =>
+    item.classList.remove("active")
+  );
 
-  document.querySelectorAll('.nav-item[data-page="'+id+'"]').forEach(n=>n.classList.add("active"));
+  document.getElementById(id).classList.add("active");
+  document.getElementById("pageTitle").textContent = titles[id];
+
+  document.querySelectorAll('.nav-item[data-page="' + id + '"]').forEach(item =>
+    item.classList.add("active")
+  );
 }
 
-document.querySelectorAll(".nav-item[data-page]").forEach(item=>{
-  item.addEventListener("click",()=>showPage(item.dataset.page));
+document.querySelectorAll(".nav-item[data-page]").forEach(item => {
+  item.addEventListener("click", () => showPage(item.dataset.page));
 });
+
+async function initialize() {
+  showLogin();
+
+  try {
+    const result = await apiRequest("check");
+    if (result.authenticated) showDashboard();
+  } catch (error) {
+    showLogin("تعذر التحقق من الجلسة. حاول مرة أخرى.");
+  }
+}
+
+initialize();
 </script>
 </body>
 </html>
