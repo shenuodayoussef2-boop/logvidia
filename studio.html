@@ -8,404 +8,192 @@
 
 <style>
 :root {
-  --bg: #090d16;
-  --panel: #101725;
-  --panel2: #151f30;
-  --border: #263449;
-  --text: #f1f5f9;
-  --muted: #91a0b5;
-  --blue: #3985ff;
-  --gold: #e6b85c;
+  --bg:#090d16;
+  --panel:#101725;
+  --panel2:#151f30;
+  --border:#263449;
+  --text:#f1f5f9;
+  --muted:#91a0b5;
+  --blue:#3985ff;
+  --gold:#e6b85c;
 }
-
-* { box-sizing: border-box; }
-
+* {box-sizing:border-box}
 body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: Tahoma, Arial, sans-serif;
-  overflow: hidden;
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:Tahoma,Arial,sans-serif;
+  overflow:hidden;
 }
-
-button, input, textarea, select {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-.app {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-/* HEADER */
-
+button,input,textarea {font:inherit}
+button {cursor:pointer}
+.app {height:100vh;display:flex;flex-direction:column}
 .header {
-  height: 65px;
-  padding: 0 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
-  gap: 12px;
+  min-height:65px;
+  padding:0 18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:var(--panel);
+  border-bottom:1px solid var(--border);
+  gap:12px;
 }
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-weight: bold;
-}
-
+.brand {display:flex;align-items:center;gap:12px;font-weight:bold}
 .logo {
-  width: 37px;
-  height: 37px;
-  display: grid;
-  place-items: center;
-  border-radius: 11px;
-  color: #101725;
-  background: var(--gold);
-  font-size: 20px;
+  width:37px;height:37px;
+  display:grid;place-items:center;
+  border-radius:11px;
+  color:#101725;background:var(--gold);
+  font-size:20px;
 }
-
 .brand small {
-  display: block;
-  color: var(--muted);
-  font-weight: normal;
-  font-size: 11px;
-  margin-top: 4px;
+  display:block;color:var(--muted);
+  font-weight:normal;font-size:11px;margin-top:4px
 }
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-
+.header-actions {display:flex;gap:7px;flex-wrap:wrap}
 .btn {
-  border: 1px solid var(--border);
-  color: var(--text);
-  background: var(--panel2);
-  padding: 9px 13px;
-  border-radius: 8px;
-  font-size: 12px;
+  border:1px solid var(--border);
+  color:var(--text);background:var(--panel2);
+  padding:9px 13px;border-radius:8px;font-size:12px
 }
-
-.btn:hover {
-  border-color: var(--blue);
-}
-
-.btn.primary {
-  background: var(--blue);
-  border-color: var(--blue);
-  color: white;
-}
-
-/* MAIN LAYOUT */
-
+.btn:hover {border-color:var(--blue)}
+.btn.primary {background:var(--blue);border-color:var(--blue);color:white}
 .workspace {
-  display: grid;
-  grid-template-columns: 220px minmax(300px, 1fr) 260px;
-  flex: 1;
-  min-height: 0;
+  display:grid;
+  grid-template-columns:220px minmax(300px,1fr) 260px;
+  flex:1;min-height:0
 }
-
-.sidebar, .properties {
-  background: var(--panel);
-  padding: 15px;
-  overflow-y: auto;
+.sidebar,.properties {
+  background:var(--panel);
+  padding:15px;overflow-y:auto
 }
-
-.sidebar {
-  border-left: 1px solid var(--border);
-}
-
-.properties {
-  border-right: 1px solid var(--border);
-}
-
+.sidebar {border-left:1px solid var(--border)}
+.properties {border-right:1px solid var(--border)}
 .section-title {
-  color: var(--muted);
-  font-size: 11px;
-  margin: 5px 0 15px;
-  font-weight: bold;
-  letter-spacing: .5px;
+  color:var(--muted);font-size:11px;
+  margin:5px 0 15px;font-weight:bold
 }
-
 .node-option {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  margin-bottom: 9px;
-  background: var(--panel2);
-  cursor: grab;
-  user-select: none;
-  font-size: 12px;
+  display:flex;align-items:center;gap:10px;
+  padding:12px;border:1px solid var(--border);
+  border-radius:9px;margin-bottom:9px;
+  background:var(--panel2);cursor:grab;
+  user-select:none;font-size:12px
 }
-
-.node-option:hover {
-  border-color: var(--blue);
-  transform: translateY(-1px);
-}
-
+.node-option:hover {border-color:var(--blue)}
 .node-icon {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: #263752;
-  font-size: 15px;
+  width:30px;height:30px;
+  display:grid;place-items:center;
+  border-radius:8px;background:#263752;font-size:15px
 }
-
 .node-option small {
-  display: block;
-  color: var(--muted);
-  font-size: 10px;
-  margin-top: 4px;
+  display:block;color:var(--muted);
+  font-size:10px;margin-top:4px
 }
-
-/* CANVAS */
-
 .canvas-wrap {
-  position: relative;
-  overflow: auto;
-  background-color: #0b1220;
-  background-image:
-    radial-gradient(#263449 1px, transparent 1px);
-  background-size: 22px 22px;
+  position:relative;overflow:auto;
+  background-color:#0b1220;
+  background-image:radial-gradient(#263449 1px,transparent 1px);
+  background-size:22px 22px
 }
-
 .canvas {
-  position: relative;
-  width: 1800px;
-  height: 1200px;
-  min-width: 100%;
-  min-height: 100%;
+  position:relative;width:1800px;height:1200px;
+  min-width:100%;min-height:100%
 }
-
 .canvas-hint {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  color: var(--muted);
-  font-size: 11px;
-  pointer-events: none;
-  z-index: 2;
+  position:absolute;top:20px;right:20px;
+  color:var(--muted);font-size:11px;
+  pointer-events:none;z-index:2
 }
-
 .connections {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  overflow: visible;
+  position:absolute;inset:0;width:100%;height:100%;
+  pointer-events:none;overflow:visible
 }
-
 .connection {
-  fill: none;
-  stroke: var(--blue);
-  stroke-width: 2.5;
+  fill:none;stroke:var(--blue);stroke-width:2.5
 }
-
-/* WORKFLOW NODES */
-
 .node {
-  position: absolute;
-  width: 205px;
-  background: #111c2d;
-  border: 1px solid #35465e;
-  border-radius: 11px;
-  box-shadow: 0 8px 25px #0005;
-  z-index: 3;
+  position:absolute;width:205px;
+  background:#111c2d;border:1px solid #35465e;
+  border-radius:11px;box-shadow:0 8px 25px #0005;z-index:3
 }
-
 .node.selected {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 2px #3985ff30;
+  border-color:var(--blue);
+  box-shadow:0 0 0 2px #3985ff30
 }
-
 .node-header {
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  border-bottom: 1px solid var(--border);
-  cursor: move;
-  user-select: none;
+  padding:12px;display:flex;align-items:center;
+  gap:9px;border-bottom:1px solid var(--border);
+  cursor:move;user-select:none
 }
-
-.node-header strong {
-  font-size: 12px;
-}
-
+.node-header strong {font-size:12px}
 .node-header small {
-  display: block;
-  color: var(--muted);
-  font-size: 10px;
-  margin-top: 4px;
+  display:block;color:var(--muted);
+  font-size:10px;margin-top:4px
 }
-
 .node-body {
-  padding: 12px;
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.7;
-  min-height: 43px;
+  padding:12px;color:var(--muted);
+  font-size:10px;line-height:1.7;min-height:43px;
+  overflow-wrap:anywhere
 }
-
 .node-footer {
-  padding: 8px 12px;
-  border-top: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 10px;
-  display: flex;
-  justify-content: space-between;
+  padding:8px 12px;border-top:1px solid var(--border);
+  color:var(--muted);font-size:10px;
+  display:flex;justify-content:space-between
 }
-
 .port {
-  position: absolute;
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: var(--blue);
-  border: 2px solid #dceaff;
-  top: 48px;
-  cursor: crosshair;
-  z-index: 5;
+  position:absolute;width:13px;height:13px;
+  border-radius:50%;background:var(--blue);
+  border:2px solid #dceaff;top:48px;
+  cursor:crosshair;z-index:5
 }
-
-.port.input { left: -7px; }
-.port.output { right: -7px; }
-
+.port.input {left:-7px}
+.port.output {right:-7px}
 .port.pending {
-  background: var(--gold);
-  box-shadow: 0 0 10px var(--gold);
+  background:var(--gold);
+  box-shadow:0 0 10px var(--gold)
 }
-
-/* PROPERTIES */
-
 .empty-properties {
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 2;
-  text-align: center;
-  padding: 35px 5px;
+  color:var(--muted);font-size:12px;
+  line-height:2;text-align:center;padding:35px 5px
 }
-
-.field {
-  margin-bottom: 17px;
-}
-
+.field {margin-bottom:17px}
 .field label {
-  display: block;
-  color: var(--muted);
-  font-size: 11px;
-  margin-bottom: 8px;
+  display:block;color:var(--muted);
+  font-size:11px;margin-bottom:8px
 }
-
-.field input, .field textarea, .field select {
-  width: 100%;
-  background: #0b1220;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 10px;
-  outline: none;
-  font-size: 12px;
+.field input,.field textarea {
+  width:100%;background:#0b1220;color:var(--text);
+  border:1px solid var(--border);border-radius:7px;
+  padding:10px;outline:none;font-size:12px
 }
-
-.field textarea {
-  resize: vertical;
-  min-height: 90px;
-  line-height: 1.7;
-}
-
-.field input:focus,
-.field textarea:focus,
-.field select:focus {
-  border-color: var(--blue);
-}
-
+.field textarea {resize:vertical;min-height:110px;line-height:1.7}
+.field input:focus,.field textarea:focus {border-color:var(--blue)}
 .delete-btn {
-  width: 100%;
-  padding: 10px;
-  background: #351c27;
-  color: #ff9eaa;
-  border: 1px solid #683040;
-  border-radius: 7px;
-  font-size: 12px;
+  width:100%;padding:10px;background:#351c27;
+  color:#ff9eaa;border:1px solid #683040;
+  border-radius:7px;font-size:12px
 }
-
 .status {
-  position: fixed;
-  bottom: 15px;
-  left: 15px;
-  z-index: 10;
-  background: #162338;
-  border: 1px solid var(--border);
-  padding: 10px 14px;
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 11px;
-  display: none;
-  max-width: 90vw;
+  position:fixed;bottom:15px;left:15px;z-index:10;
+  background:#162338;border:1px solid var(--border);
+  padding:10px 14px;border-radius:8px;
+  color:var(--text);font-size:11px;
+  display:none;max-width:90vw
 }
-
-@media(max-width: 850px) {
-  .workspace {
-    grid-template-columns: 155px minmax(250px, 1fr);
-  }
-
-  .properties {
-    display: none;
-  }
-
-  .sidebar {
-    padding: 9px;
-  }
-
-  .node-option {
-    padding: 8px;
-    font-size: 10px;
-  }
-
-  .header {
-    padding: 0 10px;
-  }
-
-  .header-actions .btn {
-    padding: 8px;
-    font-size: 10px;
-  }
+@media(max-width:850px) {
+  .workspace {grid-template-columns:155px minmax(250px,1fr)}
+  .properties {display:none}
+  .sidebar {padding:9px}
+  .node-option {padding:8px;font-size:10px}
+  .header {padding:0 10px}
+  .header-actions .btn {padding:8px;font-size:10px}
 }
-
-@media(max-width: 480px) {
-  .workspace {
-    grid-template-columns: 115px minmax(220px, 1fr);
-  }
-
-  .node-option {
-    gap: 5px;
-    padding: 7px 4px;
-  }
-
-  .node-icon {
-    width: 25px;
-    height: 25px;
-  }
-
-  .brand {
-    font-size: 12px;
-  }
+@media(max-width:480px) {
+  .workspace {grid-template-columns:115px minmax(220px,1fr)}
+  .node-option {gap:5px;padding:7px 4px}
+  .node-icon {width:25px;height:25px}
+  .brand {font-size:12px}
 }
 </style>
 </head>
@@ -413,144 +201,152 @@ button {
 <body>
 <div class="app">
 
-  <header class="header">
-    <div class="brand">
-      <div class="logo">L</div>
-      <div>
-        Ask Logvidia
-        <small>AI Studio · Agent Builder</small>
-      </div>
+<header class="header">
+  <div class="brand">
+    <div class="logo">L</div>
+    <div>
+      Ask Logvidia
+      <small>AI Studio · Agent Builder</small>
     </div>
+  </div>
 
-    <div class="header-actions">
-      <button class="btn" id="clearBtn">مسح</button>
-      <button class="btn" id="saveBtn">حفظ</button>
-      <button class="btn primary" id="runBtn">اختبار الوكيل</button>
+  <div class="header-actions">
+    <button class="btn" id="clearBtn">مسح</button>
+    <button class="btn" id="importBtn">استيراد JSON</button>
+    <button class="btn" id="exportBtn">تصدير JSON</button>
+    <button class="btn" id="saveBtn">حفظ</button>
+    <button class="btn primary" id="runBtn">اختبار الوكيل</button>
+    <input type="file" id="importFile" accept=".json,application/json" hidden>
+  </div>
+</header>
+
+<main class="workspace">
+
+<aside class="sidebar">
+  <div class="section-title">مكونات الوكيل</div>
+
+  <div class="node-option" draggable="true" data-type="start">
+    <div class="node-icon">▶</div>
+    <div>Start<small>بداية سير العمل</small></div>
+  </div>
+
+  <div class="node-option" draggable="true" data-type="agent">
+    <div class="node-icon">✦</div>
+    <div>AI Agent<small>عقل الوكيل</small></div>
+  </div>
+
+  <div class="node-option" draggable="true" data-type="knowledge">
+    <div class="node-icon">📚</div>
+    <div>Knowledge Base<small>قاعدة المعرفة</small></div>
+  </div>
+
+  <div class="node-option" draggable="true" data-type="products">
+    <div class="node-icon">🛍</div>
+    <div>Store Products<small>منتجات المتجر</small></div>
+  </div>
+
+  <div class="node-option" draggable="true" data-type="condition">
+    <div class="node-icon">◇</div>
+    <div>Condition<small>الشروط والقرارات</small></div>
+  </div>
+
+  <div class="node-option" draggable="true" data-type="approval">
+    <div class="node-icon">✓</div>
+    <div>Human Approval<small>موافقة المسؤول</small></div>
+  </div>
+
+  <div class="node-option" draggable="true" data-type="action">
+    <div class="node-icon">⚡</div>
+    <div>Action<small>تنفيذ إجراء</small></div>
+  </div>
+
+  <div class="node-option" draggable="true" data-type="response">
+    <div class="node-icon">💬</div>
+    <div>Response<small>إرسال الرد</small></div>
+  </div>
+</aside>
+
+<section class="canvas-wrap" id="canvasWrap">
+  <div class="canvas" id="canvas">
+    <div class="canvas-hint">
+      اسحب المكونات إلى مساحة العمل، ثم اضغط على نقاط الربط لتوصيلها.
     </div>
-  </header>
+    <svg class="connections" id="connections"></svg>
+  </div>
+</section>
 
-  <main class="workspace">
+<aside class="properties">
+  <div class="section-title">إعدادات المكون</div>
+  <div id="propertiesContent" class="empty-properties">
+    اختَر أي مكون من مساحة العمل لعرض إعداداته هنا.
+  </div>
+</aside>
 
-    <aside class="sidebar">
-      <div class="section-title">مكونات الوكيل</div>
-
-      <div class="node-option" draggable="true" data-type="start">
-        <div class="node-icon">▶</div>
-        <div>Start<small>بداية سير العمل</small></div>
-      </div>
-
-      <div class="node-option" draggable="true" data-type="agent">
-        <div class="node-icon">✦</div>
-        <div>AI Agent<small>عقل الوكيل</small></div>
-      </div>
-
-      <div class="node-option" draggable="true" data-type="knowledge">
-        <div class="node-icon">📚</div>
-        <div>Knowledge Base<small>قاعدة المعرفة</small></div>
-      </div>
-
-      <div class="node-option" draggable="true" data-type="products">
-        <div class="node-icon">🛍</div>
-        <div>Store Products<small>منتجات المتجر</small></div>
-      </div>
-
-      <div class="node-option" draggable="true" data-type="condition">
-        <div class="node-icon">◇</div>
-        <div>Condition<small>الشروط والقرارات</small></div>
-      </div>
-
-      <div class="node-option" draggable="true" data-type="approval">
-        <div class="node-icon">✓</div>
-        <div>Human Approval<small>موافقة المسؤول</small></div>
-      </div>
-
-      <div class="node-option" draggable="true" data-type="action">
-        <div class="node-icon">⚡</div>
-        <div>Action<small>تنفيذ إجراء</small></div>
-      </div>
-
-      <div class="node-option" draggable="true" data-type="response">
-        <div class="node-icon">💬</div>
-        <div>Response<small>إرسال الرد</small></div>
-      </div>
-    </aside>
-
-    <section class="canvas-wrap" id="canvasWrap">
-      <div class="canvas" id="canvas">
-        <div class="canvas-hint">
-          اسحب المكونات إلى مساحة العمل، ثم اضغط على نقاط الربط لتوصيلها.
-        </div>
-        <svg class="connections" id="connections"></svg>
-      </div>
-    </section>
-
-    <aside class="properties">
-      <div class="section-title">إعدادات المكون</div>
-      <div id="propertiesContent" class="empty-properties">
-        اختَر أي مكون من مساحة العمل لعرض إعداداته هنا.
-      </div>
-    </aside>
-
-  </main>
+</main>
 </div>
 
 <div class="status" id="status"></div>
 
 <script>
+"use strict";
+
 const canvas = document.getElementById("canvas");
 const canvasWrap = document.getElementById("canvasWrap");
 const svg = document.getElementById("connections");
 const propertiesContent = document.getElementById("propertiesContent");
 const statusBox = document.getElementById("status");
+const importFile = document.getElementById("importFile");
+
+const STORAGE_KEY = "ask_logvidia_studio";
 
 const definitions = {
   start: {
-    title: "Start",
-    icon: "▶",
-    subtitle: "بداية الوكيل",
-    description: "يبدأ تشغيل سير العمل عند وصول رسالة جديدة."
+    title:"Start",
+    icon:"▶",
+    subtitle:"بداية الوكيل",
+    description:"يبدأ تشغيل سير العمل عند وصول رسالة جديدة."
   },
   agent: {
-    title: "AI Agent",
-    icon: "✦",
-    subtitle: "وكيل الذكاء الاصطناعي",
-    description: "يفهم رسالة المستخدم ويحدد طريقة التعامل معها."
+    title:"AI Agent",
+    icon:"✦",
+    subtitle:"وكيل الذكاء الاصطناعي",
+    description:"يفهم رسالة المستخدم ويحدد طريقة التعامل معها."
   },
   knowledge: {
-    title: "Knowledge Base",
-    icon: "📚",
-    subtitle: "قاعدة المعرفة",
-    description: "مصدر معلومات يمكن ربطه بالوكيل."
+    title:"Knowledge Base",
+    icon:"📚",
+    subtitle:"قاعدة المعرفة",
+    description:"مصدر معلومات يمكن ربطه بالوكيل."
   },
   products: {
-    title: "Store Products",
-    icon: "🛍",
-    subtitle: "بيانات منتجات المتجر",
-    description: "مصدر بيانات المنتجات والأسعار والتوفر."
+    title:"Store Products",
+    icon:"🛍",
+    subtitle:"بيانات منتجات المتجر",
+    description:"مصدر بيانات المنتجات والأسعار والتوفر."
   },
   condition: {
-    title: "Condition",
-    icon: "◇",
-    subtitle: "شرط أو قرار",
-    description: "يفصل سير العمل حسب شرط محدد."
+    title:"Condition",
+    icon:"◇",
+    subtitle:"شرط أو قرار",
+    description:"يفصل سير العمل حسب شرط محدد."
   },
   approval: {
-    title: "Human Approval",
-    icon: "✓",
-    subtitle: "موافقة بشرية",
-    description: "يتطلب موافقة المسؤول قبل متابعة الإجراء."
+    title:"Human Approval",
+    icon:"✓",
+    subtitle:"موافقة بشرية",
+    description:"يتطلب موافقة المسؤول قبل متابعة الإجراء."
   },
   action: {
-    title: "Action",
-    icon: "⚡",
-    subtitle: "إجراء",
-    description: "يمثل إجراءً يمكن ربطه بخدمة خارجية."
+    title:"Action",
+    icon:"⚡",
+    subtitle:"إجراء",
+    description:"يمثل إجراءً يمكن ربطه بخدمة خارجية."
   },
   response: {
-    title: "Response",
-    icon: "💬",
-    subtitle: "الرد النهائي",
-    description: "يمثل الرسالة التي ستصل إلى العميل."
+    title:"Response",
+    icon:"💬",
+    subtitle:"الرد النهائي",
+    description:"يمثل الرسالة التي ستصل إلى العميل."
   }
 };
 
@@ -560,7 +356,7 @@ let selectedId = null;
 let pendingConnection = null;
 let nextId = 1;
 let dragNode = null;
-let dragOffset = { x: 0, y: 0 };
+let dragOffset = {x:0,y:0};
 
 function showStatus(message) {
   statusBox.textContent = message;
@@ -569,27 +365,47 @@ function showStatus(message) {
   clearTimeout(showStatus.timer);
   showStatus.timer = setTimeout(() => {
     statusBox.style.display = "none";
-  }, 2600);
+  }, 2800);
 }
 
-function makeNode(type, x, y) {
+function persistWorkflow(showMessage = false) {
+  const workflow = {
+    version:2,
+    name:"Ask Logvidia Agent",
+    nodes,
+    connections,
+    updatedAt:new Date().toISOString()
+  };
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(workflow));
+    if (showMessage) showStatus("تم حفظ التصميم بنجاح");
+    return true;
+  } catch (error) {
+    showStatus("تعذر الحفظ في المتصفح");
+    return false;
+  }
+}
+
+function makeNode(type,x,y) {
   if (!definitions[type]) return;
 
   const node = {
-    id: "node_" + nextId++,
+    id:"node_" + nextId++,
     type,
-    x: Math.max(15, x),
-    y: Math.max(60, y),
-    name: definitions[type].title,
-    instruction: "",
-    value: ""
+    x:Math.max(15,x),
+    y:Math.max(60,y),
+    name:definitions[type].title,
+    instruction:"",
+    value:""
   };
 
   nodes.push(node);
   selectedId = node.id;
 
   render();
-  showStatus("تمت إضافة المكون");
+  persistWorkflow();
+  showStatus("تمت إضافة المكون وحفظه");
 }
 
 function render() {
@@ -597,11 +413,10 @@ function render() {
 
   nodes.forEach(node => {
     const def = definitions[node.type];
+    if (!def) return;
+
     const el = document.createElement("div");
-
-    el.className = "node" +
-      (node.id === selectedId ? " selected" : "");
-
+    el.className = "node" + (node.id === selectedId ? " selected" : "");
     el.dataset.id = node.id;
     el.style.left = node.x + "px";
     el.style.top = node.y + "px";
@@ -613,28 +428,26 @@ function render() {
     icon.textContent = def.icon;
 
     const heading = document.createElement("div");
-
     const title = document.createElement("strong");
+    title.className = "node-title";
     title.textContent = node.name || def.title;
 
     const subtitle = document.createElement("small");
     subtitle.textContent = def.subtitle;
 
-    heading.append(title, subtitle);
-    header.append(icon, heading);
+    heading.append(title,subtitle);
+    header.append(icon,heading);
 
     const body = document.createElement("div");
     body.className = "node-body";
     body.textContent =
-      node.instruction ||
-      node.value ||
-      def.description;
+      node.instruction || node.value || def.description;
 
     const footer = document.createElement("div");
     footer.className = "node-footer";
     footer.textContent = node.type.toUpperCase();
 
-    el.append(header, body, footer);
+    el.append(header,body,footer);
 
     if (node.type !== "start") {
       const input = document.createElement("div");
@@ -672,7 +485,6 @@ function drawConnections() {
     const startY = from.y + 54;
     const endX = to.x;
     const endY = to.y + 54;
-
     const middleX = (startX + endX) / 2;
 
     const path = document.createElementNS(
@@ -685,7 +497,7 @@ function drawConnections() {
       `M ${startX} ${startY} C ${middleX} ${startY}, ${middleX} ${endY}, ${endX} ${endY}`
     );
 
-    path.setAttribute("class", "connection");
+    path.setAttribute("class","connection");
     svg.append(path);
   });
 }
@@ -701,10 +513,9 @@ function renderProperties() {
   }
 
   propertiesContent.className = "";
-
   const wrapper = document.createElement("div");
 
-  function addField(labelText, value, onInput, multiline = false) {
+  function addField(labelText,property,multiline = false) {
     const field = document.createElement("div");
     field.className = "field";
 
@@ -715,35 +526,35 @@ function renderProperties() {
       multiline ? "textarea" : "input"
     );
 
-    input.value = value || "";
-    input.addEventListener("input", event => {
-      onInput(event.target.value);
+    input.value = node[property] || "";
+
+    input.addEventListener("input",event => {
+      node[property] = event.target.value;
+
+      if (property === "name") {
+        const title = document.querySelector(
+          `.node[data-id="${node.id}"] .node-title`
+        );
+        if (title) title.textContent = node.name || definitions[node.type].title;
+      }
+
+      updateNodePreview(node);
+      persistWorkflow();
     });
 
-    field.append(label, input);
+    field.append(label,input);
     wrapper.append(field);
   }
 
-  addField("اسم المكون", node.name, value => {
-    node.name = value;
-    render();
-  });
-
-  addField("التعليمات", node.instruction, value => {
-    node.instruction = value;
-    updateNodePreview(node);
-  }, true);
-
-  addField("قيمة إضافية", node.value, value => {
-    node.value = value;
-    updateNodePreview(node);
-  }, true);
+  addField("اسم المكون","name");
+  addField("التعليمات","instruction",true);
+  addField("قيمة إضافية","value",true);
 
   const deleteButton = document.createElement("button");
   deleteButton.className = "delete-btn";
   deleteButton.textContent = "حذف المكون";
 
-  deleteButton.addEventListener("click", () => {
+  deleteButton.addEventListener("click",() => {
     nodes = nodes.filter(n => n.id !== node.id);
 
     connections = connections.filter(
@@ -754,6 +565,7 @@ function renderProperties() {
     pendingConnection = null;
 
     render();
+    persistWorkflow();
     showStatus("تم حذف المكون");
   });
 
@@ -769,36 +581,33 @@ function updateNodePreview(node) {
   if (!el) return;
 
   const body = el.querySelector(".node-body");
-
   body.textContent =
     node.instruction ||
     node.value ||
     definitions[node.type].description;
 }
 
-// DRAG FROM SIDEBAR
+// إضافة المكونات من القائمة
 
 document.querySelectorAll(".node-option").forEach(option => {
-  option.addEventListener("dragstart", event => {
-    event.dataTransfer.setData(
-      "nodeType",
-      option.dataset.type
-    );
+  option.addEventListener("dragstart",event => {
+    event.dataTransfer.setData("nodeType",option.dataset.type);
   });
 
-  option.addEventListener("click", () => {
-    const x = canvasWrap.scrollLeft + 300;
-    const y = canvasWrap.scrollTop + 180;
-
-    makeNode(option.dataset.type, x, y);
+  option.addEventListener("click",() => {
+    makeNode(
+      option.dataset.type,
+      canvasWrap.scrollLeft + 300,
+      canvasWrap.scrollTop + 180
+    );
   });
 });
 
-canvasWrap.addEventListener("dragover", event => {
+canvasWrap.addEventListener("dragover",event => {
   event.preventDefault();
 });
 
-canvasWrap.addEventListener("drop", event => {
+canvasWrap.addEventListener("drop",event => {
   event.preventDefault();
 
   const type = event.dataTransfer.getData("nodeType");
@@ -806,15 +615,16 @@ canvasWrap.addEventListener("drop", event => {
 
   const rect = canvas.getBoundingClientRect();
 
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
-
-  makeNode(type, x, y);
+  makeNode(
+    type,
+    event.clientX - rect.left,
+    event.clientY - rect.top
+  );
 });
 
-// NODE SELECTION AND CONNECTION
+// اختيار المكونات وإنشاء الاتصالات
 
-canvas.addEventListener("click", event => {
+canvas.addEventListener("click",event => {
   const port = event.target.closest(".port");
 
   if (port) {
@@ -845,11 +655,12 @@ canvas.addEventListener("click", event => {
 
       if (!exists) {
         connections.push({
-          from: pendingConnection,
-          to: id
+          from:pendingConnection,
+          to:id
         });
 
-        showStatus("تم إنشاء الاتصال");
+        showStatus("تم إنشاء الاتصال وحفظه");
+        persistWorkflow();
       } else {
         showStatus("الاتصال موجود بالفعل");
       }
@@ -868,31 +679,27 @@ canvas.addEventListener("click", event => {
   }
 });
 
-// MOVE NODES
+// تحريك المكونات
 
-canvas.addEventListener("pointerdown", event => {
+canvas.addEventListener("pointerdown",event => {
   const header = event.target.closest(".node-header");
   if (!header) return;
 
   const element = header.closest(".node");
   const node = nodes.find(n => n.id === element.dataset.id);
-
   if (!node) return;
 
   dragNode = node;
 
   const rect = canvas.getBoundingClientRect();
 
-  dragOffset.x =
-    event.clientX - rect.left - node.x;
-
-  dragOffset.y =
-    event.clientY - rect.top - node.y;
+  dragOffset.x = event.clientX - rect.left - node.x;
+  dragOffset.y = event.clientY - rect.top - node.y;
 
   element.setPointerCapture(event.pointerId);
 });
 
-canvas.addEventListener("pointermove", event => {
+canvas.addEventListener("pointermove",event => {
   if (!dragNode) return;
 
   const rect = canvas.getBoundingClientRect();
@@ -919,84 +726,80 @@ canvas.addEventListener("pointermove", event => {
   drawConnections();
 });
 
-canvas.addEventListener("pointerup", () => {
+canvas.addEventListener("pointerup",() => {
+  if (dragNode) persistWorkflow();
   dragNode = null;
 });
 
-canvas.addEventListener("pointercancel", () => {
+canvas.addEventListener("pointercancel",() => {
+  if (dragNode) persistWorkflow();
   dragNode = null;
 });
 
-// SAVE WORKFLOW
-
-function saveWorkflow() {
-  const workflow = {
-    version: 1,
-    name: "Ask Logvidia Agent",
-    nodes,
-    connections,
-    updatedAt: new Date().toISOString()
-  };
-
-  try {
-    localStorage.setItem(
-      "ask_logvidia_studio",
-      JSON.stringify(workflow)
-    );
-
-    showStatus("تم حفظ التصميم على هذا المتصفح");
-  } catch (error) {
-    showStatus("تعذر حفظ التصميم");
-  }
-}
+// تحميل التصميم المحفوظ
 
 function loadWorkflow() {
   try {
-    const saved = localStorage.getItem("ask_logvidia_studio");
+    const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return false;
 
     const workflow = JSON.parse(saved);
 
     if (
-      workflow.version !== 1 ||
       !Array.isArray(workflow.nodes) ||
       !Array.isArray(workflow.connections)
     ) {
       return false;
     }
 
-    nodes = workflow.nodes.filter(
-      node => definitions[node.type]
-    );
+    nodes = workflow.nodes
+      .filter(node => node && definitions[node.type])
+      .map(node => ({
+        id:String(node.id),
+        type:node.type,
+        x:Number(node.x) || 15,
+        y:Number(node.y) || 60,
+        name:String(node.name || definitions[node.type].title),
+        instruction:String(node.instruction || ""),
+        value:String(node.value || "")
+      }));
+
+    const validIds = new Set(nodes.map(n => n.id));
 
     connections = workflow.connections.filter(connection =>
-      nodes.some(n => n.id === connection.from) &&
-      nodes.some(n => n.id === connection.to)
+      connection &&
+      validIds.has(connection.from) &&
+      validIds.has(connection.to)
     );
 
     const numbers = nodes.map(node =>
-      Number(String(node.id).replace("node_", ""))
+      Number(node.id.replace("node_","")) || 0
     );
 
-    nextId = Math.max(0, ...numbers) + 1;
+    nextId = Math.max(0,...numbers) + 1;
 
     return true;
-  } catch {
+  } catch(error) {
+    console.error("Load workflow error:",error);
     return false;
   }
 }
 
-// EXPORT WORKFLOW
+// تصدير JSON
 
 function exportWorkflow() {
-  const data = JSON.stringify({
-    version: 1,
-    nodes,
-    connections
-  }, null, 2);
+  persistWorkflow();
 
-  const blob = new Blob([data], {
-    type: "application/json"
+  const data = JSON.stringify({
+    version:2,
+    name:"Ask Logvidia Agent",
+    nodes,
+    connections,
+    exportedAt:new Date().toISOString()
+  },null,2);
+
+  const blob = new Blob([data],{
+    type:"application/json"
   });
 
   const url = URL.createObjectURL(blob);
@@ -1004,13 +807,83 @@ function exportWorkflow() {
 
   link.href = url;
   link.download = "ask-logvidia-workflow.json";
-  link.click();
 
-  URL.revokeObjectURL(url);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url),1000);
+
   showStatus("تم تصدير تصميم الوكيل");
 }
 
-// TEST WORKFLOW
+// استيراد JSON
+
+function importWorkflow(file) {
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    try {
+      const workflow = JSON.parse(reader.result);
+
+      if (
+        !workflow ||
+        !Array.isArray(workflow.nodes) ||
+        !Array.isArray(workflow.connections)
+      ) {
+        throw new Error("Invalid workflow");
+      }
+
+      const importedNodes = workflow.nodes
+        .filter(node => node && definitions[node.type])
+        .map((node,index) => ({
+          id:String(node.id || "imported_" + index),
+          type:node.type,
+          x:Number(node.x) || 15,
+          y:Number(node.y) || 60,
+          name:String(node.name || definitions[node.type].title),
+          instruction:String(node.instruction || ""),
+          value:String(node.value || "")
+        }));
+
+      const ids = new Set(importedNodes.map(n => n.id));
+
+      const importedConnections = workflow.connections.filter(c =>
+        c && ids.has(c.from) && ids.has(c.to)
+      );
+
+      nodes = importedNodes;
+      connections = importedConnections;
+      selectedId = null;
+      pendingConnection = null;
+
+      const numbers = nodes.map(n =>
+        Number(n.id.replace("node_","")) || 0
+      );
+
+      nextId = Math.max(0,...numbers) + 1;
+
+      render();
+      persistWorkflow();
+
+      showStatus("تم استيراد التصميم بنجاح");
+    } catch(error) {
+      showStatus("ملف JSON غير صالح أو غير متوافق");
+    }
+
+    importFile.value = "";
+  };
+
+  reader.onerror = () => {
+    showStatus("تعذر قراءة الملف");
+  };
+
+  reader.readAsText(file);
+}
+
+// اختبار سلامة التصميم فقط
 
 function testWorkflow() {
   const startNodes = nodes.filter(n => n.type === "start");
@@ -1032,11 +905,6 @@ function testWorkflow() {
     return;
   }
 
-  if (!connections.length) {
-    showStatus("اربط المكونات ببعضها أولًا");
-    return;
-  }
-
   const visited = new Set();
   const queue = [startNodes[0].id];
 
@@ -1055,51 +923,61 @@ function testWorkflow() {
   const connectedResponse = responseNodes.some(n => visited.has(n.id));
 
   if (!connectedAgent || !connectedResponse) {
-    showStatus("تأكد من وجود مسار متصل من Start إلى AI Agent ثم Response");
+    showStatus("تأكد من وجود مسار من Start إلى Agent ثم Response");
     return;
   }
 
   showStatus("التصميم سليم مبدئيًا. التنفيذ الحقيقي لم يتم ربطه بعد.");
 }
 
-// BUTTONS
+// الأزرار
 
-document.getElementById("saveBtn").addEventListener(
-  "click",
-  saveWorkflow
-);
+document.getElementById("saveBtn").addEventListener("click",() => {
+  persistWorkflow(true);
+});
 
-document.getElementById("runBtn").addEventListener(
-  "click",
-  testWorkflow
-);
+document.getElementById("exportBtn").addEventListener("click",exportWorkflow);
 
-document.getElementById("clearBtn").addEventListener(
-  "click",
-  () => {
-    if (!confirm("هل تريد حذف كل المكونات والاتصالات؟")) return;
+document.getElementById("importBtn").addEventListener("click",() => {
+  importFile.click();
+});
 
-    nodes = [];
-    connections = [];
-    selectedId = null;
-    pendingConnection = null;
+importFile.addEventListener("change",event => {
+  importWorkflow(event.target.files[0]);
+});
 
-    render();
-    showStatus("تم مسح مساحة العمل");
-  }
-);
+document.getElementById("runBtn").addEventListener("click",testWorkflow);
 
-// INITIALIZE
+document.getElementById("clearBtn").addEventListener("click",() => {
+  if (!confirm("هل تريد حذف كل المكونات والاتصالات؟")) return;
+
+  nodes = [];
+  connections = [];
+  selectedId = null;
+  pendingConnection = null;
+
+  render();
+  persistWorkflow();
+  showStatus("تم مسح مساحة العمل");
+});
+
+// التشغيل الأول
 
 if (!loadWorkflow()) {
-  makeNode("start", 100, 180);
-  makeNode("agent", 430, 180);
-  makeNode("response", 780, 180);
+  nodes = [];
+  connections = [];
+  nextId = 1;
+
+  makeNode("start",100,180);
+  makeNode("agent",430,180);
+  makeNode("response",780,180);
 
   connections = [
-    { from: nodes[0].id, to: nodes[1].id },
-    { from: nodes[1].id, to: nodes[2].id }
+    {from:nodes[0].id,to:nodes[1].id},
+    {from:nodes[1].id,to:nodes[2].id}
   ];
+
+  persistWorkflow();
 }
 
 render();
