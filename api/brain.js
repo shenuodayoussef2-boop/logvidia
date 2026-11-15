@@ -11,11 +11,6 @@ const {
 } = require("./intelligence/response-strategy");
 
 const {
-  evaluatePolicyRequest,
-  buildPolicyInstructions
-} = require("./intelligence/policy-guard");
-
-const {
   analyzeConversationContext
 } = require("./intelligence/context-memory");
 
@@ -248,14 +243,16 @@ async function getStoreKnowledge() {
 // 6. SAFE INTELLIGENCE EXECUTION
 // ==========================================
 
-// يمنع تعطل العقل بالكامل لو وحدة ذكاء حصل فيها خطأ.
 function runModule(name, callback, fallback = null) {
   try {
     const result = callback();
-
     return result === undefined ? fallback : result;
   } catch (error) {
-    console.error(`Intelligence module error [${name}]:`, error.message);
+    console.error(
+      `Intelligence module error [${name}]:`,
+      error.message
+    );
+
     return fallback;
   }
 }
@@ -276,14 +273,14 @@ function buildUnifiedIntelligence({
   task,
   role
 }) {
-  // فهم نية العميل ومشاعره ودرجة الاستعجال.
+  // تحليل نية العميل.
   const customerIntent = runModule(
     "intent",
     () => detectCustomerIntent(message),
     {}
   );
 
-  // فهم سياق المحادثة والرسائل السابقة.
+  // تحليل سياق المحادثة.
   const conversationContext = runModule(
     "context-memory",
     () => analyzeConversationContext({
@@ -293,7 +290,7 @@ function buildUnifiedIntelligence({
     {}
   );
 
-  // تحليل طبيعة خدمة العملاء: شكوى، اعتراض، مدح...
+  // تحليل خدمة العملاء.
   const customerServicePlan = runModule(
     "customer-service",
     () => buildCustomerServicePlan({
@@ -304,12 +301,13 @@ function buildUnifiedIntelligence({
     {}
   );
 
-  // اختيار استراتيجية الرد.
+  // استراتيجية الرد تستقبل كائن النية بالكامل.
   const responseStrategy = runModule(
     "response-strategy",
-    () => buildResponseStrategy(
-      customerIntent?.intent || legacyIntent
-    ),
+    () => buildResponseStrategy({
+      ...customerIntent,
+      intent: customerIntent?.intent || legacyIntent
+    }),
     {}
   );
 
@@ -319,27 +317,13 @@ function buildUnifiedIntelligence({
     ""
   );
 
-  // تحليل طلبات السياسات.
-  // لا نمرر سياسات غير موثقة أو نخترع بيانات للمتجر.
-  const policyEvaluation = runModule(
-    "policy-guard",
-    () => evaluatePolicyRequest({
-      message,
-      intent: customerIntent,
-      history,
-      policyData: {}
-    }),
-    {}
-  );
+  // لا يوجد policy-guard.js في المشروع حاليًا.
+  // لذلك لا نستدعي وحدة غير موجودة ولا نخترع سياسات.
+  const policyEvaluation = null;
+  const policyInstructions = "";
 
-  const policyInstructions = runModule(
-    "policy-instructions",
-    () => buildPolicyInstructions(policyEvaluation),
-    ""
-  );
-
-  // تحليل الإجراءات المطلوبة.
-  // العميل لا يحصل على صلاحيات صاحب المتجر.
+  // خطة الإجراءات.
+  // العميل لا يمتلك صلاحيات صاحب المتجر.
   const actionPlan = runModule(
     "action-engine",
     () => buildActionPlan({
@@ -376,7 +360,9 @@ function buildUnifiedIntelligence({
 
   return {
     customerIntent: getObject(customerIntent),
+
     conversationContext: getObject(conversationContext),
+
     customerServicePlan: getObject(customerServicePlan),
 
     responseStrategy: getObject(responseStrategy),
@@ -388,7 +374,7 @@ function buildUnifiedIntelligence({
       actions: actionInstructions
     },
 
-    policyEvaluation: getObject(policyEvaluation),
+    policyEvaluation,
 
     actionPlan,
     actionSummary,
@@ -496,8 +482,7 @@ async function think({
 
   const safeHistory = cleanHistory(history);
 
-  // الدور لا يُؤخذ من واجهة المستخدم.
-  // يجب أن يأتي من تحقق موثوق داخل السيرفر.
+  // يجب تمرير الدور من مصدر موثوق داخل السيرفر فقط.
   const allowedRole =
     role === "owner" ? "owner" : "customer";
 
@@ -516,7 +501,7 @@ async function think({
     safeHistory
   );
 
-  // حماية بيانات المتجر الخاصة.
+  // حماية معلومات المتجر الخاصة.
   const ownerOnlyIntents = [
     "invoices",
     "reports",
@@ -565,7 +550,7 @@ async function think({
     followUp
   });
 
-  // تجميع سياق واحد واضح لنموذج الذكاء الاصطناعي.
+  // تجميع سياق النموذج.
   const context = {
     currentMessage: safeMessage,
     normalizedMessage,
