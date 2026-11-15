@@ -1,0 +1,1108 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ask Logvidia | AI Studio</title>
+
+<style>
+:root {
+  --bg: #090d16;
+  --panel: #101725;
+  --panel2: #151f30;
+  --border: #263449;
+  --text: #f1f5f9;
+  --muted: #91a0b5;
+  --blue: #3985ff;
+  --gold: #e6b85c;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Tahoma, Arial, sans-serif;
+  overflow: hidden;
+}
+
+button, input, textarea, select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* HEADER */
+
+.header {
+  height: 65px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: bold;
+}
+
+.logo {
+  width: 37px;
+  height: 37px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: #101725;
+  background: var(--gold);
+  font-size: 20px;
+}
+
+.brand small {
+  display: block;
+  color: var(--muted);
+  font-weight: normal;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  border: 1px solid var(--border);
+  color: var(--text);
+  background: var(--panel2);
+  padding: 9px 13px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.btn:hover {
+  border-color: var(--blue);
+}
+
+.btn.primary {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: white;
+}
+
+/* MAIN LAYOUT */
+
+.workspace {
+  display: grid;
+  grid-template-columns: 220px minmax(300px, 1fr) 260px;
+  flex: 1;
+  min-height: 0;
+}
+
+.sidebar, .properties {
+  background: var(--panel);
+  padding: 15px;
+  overflow-y: auto;
+}
+
+.sidebar {
+  border-left: 1px solid var(--border);
+}
+
+.properties {
+  border-right: 1px solid var(--border);
+}
+
+.section-title {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 5px 0 15px;
+  font-weight: bold;
+  letter-spacing: .5px;
+}
+
+.node-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  margin-bottom: 9px;
+  background: var(--panel2);
+  cursor: grab;
+  user-select: none;
+  font-size: 12px;
+}
+
+.node-option:hover {
+  border-color: var(--blue);
+  transform: translateY(-1px);
+}
+
+.node-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #263752;
+  font-size: 15px;
+}
+
+.node-option small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 4px;
+}
+
+/* CANVAS */
+
+.canvas-wrap {
+  position: relative;
+  overflow: auto;
+  background-color: #0b1220;
+  background-image:
+    radial-gradient(#263449 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.canvas {
+  position: relative;
+  width: 1800px;
+  height: 1200px;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.canvas-hint {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: var(--muted);
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.connections {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.connection {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 2.5;
+}
+
+/* WORKFLOW NODES */
+
+.node {
+  position: absolute;
+  width: 205px;
+  background: #111c2d;
+  border: 1px solid #35465e;
+  border-radius: 11px;
+  box-shadow: 0 8px 25px #0005;
+  z-index: 3;
+}
+
+.node.selected {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px #3985ff30;
+}
+
+.node-header {
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border-bottom: 1px solid var(--border);
+  cursor: move;
+  user-select: none;
+}
+
+.node-header strong {
+  font-size: 12px;
+}
+
+.node-header small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 4px;
+}
+
+.node-body {
+  padding: 12px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.7;
+  min-height: 43px;
+}
+
+.node-footer {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 10px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.port {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--blue);
+  border: 2px solid #dceaff;
+  top: 48px;
+  cursor: crosshair;
+  z-index: 5;
+}
+
+.port.input { left: -7px; }
+.port.output { right: -7px; }
+
+.port.pending {
+  background: var(--gold);
+  box-shadow: 0 0 10px var(--gold);
+}
+
+/* PROPERTIES */
+
+.empty-properties {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 2;
+  text-align: center;
+  padding: 35px 5px;
+}
+
+.field {
+  margin-bottom: 17px;
+}
+
+.field label {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+
+.field input, .field textarea, .field select {
+  width: 100%;
+  background: #0b1220;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 10px;
+  outline: none;
+  font-size: 12px;
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 90px;
+  line-height: 1.7;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  border-color: var(--blue);
+}
+
+.delete-btn {
+  width: 100%;
+  padding: 10px;
+  background: #351c27;
+  color: #ff9eaa;
+  border: 1px solid #683040;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.status {
+  position: fixed;
+  bottom: 15px;
+  left: 15px;
+  z-index: 10;
+  background: #162338;
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 11px;
+  display: none;
+  max-width: 90vw;
+}
+
+@media(max-width: 850px) {
+  .workspace {
+    grid-template-columns: 155px minmax(250px, 1fr);
+  }
+
+  .properties {
+    display: none;
+  }
+
+  .sidebar {
+    padding: 9px;
+  }
+
+  .node-option {
+    padding: 8px;
+    font-size: 10px;
+  }
+
+  .header {
+    padding: 0 10px;
+  }
+
+  .header-actions .btn {
+    padding: 8px;
+    font-size: 10px;
+  }
+}
+
+@media(max-width: 480px) {
+  .workspace {
+    grid-template-columns: 115px minmax(220px, 1fr);
+  }
+
+  .node-option {
+    gap: 5px;
+    padding: 7px 4px;
+  }
+
+  .node-icon {
+    width: 25px;
+    height: 25px;
+  }
+
+  .brand {
+    font-size: 12px;
+  }
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+  <header class="header">
+    <div class="brand">
+      <div class="logo">L</div>
+      <div>
+        Ask Logvidia
+        <small>AI Studio · Agent Builder</small>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn" id="clearBtn">مسح</button>
+      <button class="btn" id="saveBtn">حفظ</button>
+      <button class="btn primary" id="runBtn">اختبار الوكيل</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+
+    <aside class="sidebar">
+      <div class="section-title">مكونات الوكيل</div>
+
+      <div class="node-option" draggable="true" data-type="start">
+        <div class="node-icon">▶</div>
+        <div>Start<small>بداية سير العمل</small></div>
+      </div>
+
+      <div class="node-option" draggable="true" data-type="agent">
+        <div class="node-icon">✦</div>
+        <div>AI Agent<small>عقل الوكيل</small></div>
+      </div>
+
+      <div class="node-option" draggable="true" data-type="knowledge">
+        <div class="node-icon">📚</div>
+        <div>Knowledge Base<small>قاعدة المعرفة</small></div>
+      </div>
+
+      <div class="node-option" draggable="true" data-type="products">
+        <div class="node-icon">🛍</div>
+        <div>Store Products<small>منتجات المتجر</small></div>
+      </div>
+
+      <div class="node-option" draggable="true" data-type="condition">
+        <div class="node-icon">◇</div>
+        <div>Condition<small>الشروط والقرارات</small></div>
+      </div>
+
+      <div class="node-option" draggable="true" data-type="approval">
+        <div class="node-icon">✓</div>
+        <div>Human Approval<small>موافقة المسؤول</small></div>
+      </div>
+
+      <div class="node-option" draggable="true" data-type="action">
+        <div class="node-icon">⚡</div>
+        <div>Action<small>تنفيذ إجراء</small></div>
+      </div>
+
+      <div class="node-option" draggable="true" data-type="response">
+        <div class="node-icon">💬</div>
+        <div>Response<small>إرسال الرد</small></div>
+      </div>
+    </aside>
+
+    <section class="canvas-wrap" id="canvasWrap">
+      <div class="canvas" id="canvas">
+        <div class="canvas-hint">
+          اسحب المكونات إلى مساحة العمل، ثم اضغط على نقاط الربط لتوصيلها.
+        </div>
+        <svg class="connections" id="connections"></svg>
+      </div>
+    </section>
+
+    <aside class="properties">
+      <div class="section-title">إعدادات المكون</div>
+      <div id="propertiesContent" class="empty-properties">
+        اختَر أي مكون من مساحة العمل لعرض إعداداته هنا.
+      </div>
+    </aside>
+
+  </main>
+</div>
+
+<div class="status" id="status"></div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const canvasWrap = document.getElementById("canvasWrap");
+const svg = document.getElementById("connections");
+const propertiesContent = document.getElementById("propertiesContent");
+const statusBox = document.getElementById("status");
+
+const definitions = {
+  start: {
+    title: "Start",
+    icon: "▶",
+    subtitle: "بداية الوكيل",
+    description: "يبدأ تشغيل سير العمل عند وصول رسالة جديدة."
+  },
+  agent: {
+    title: "AI Agent",
+    icon: "✦",
+    subtitle: "وكيل الذكاء الاصطناعي",
+    description: "يفهم رسالة المستخدم ويحدد طريقة التعامل معها."
+  },
+  knowledge: {
+    title: "Knowledge Base",
+    icon: "📚",
+    subtitle: "قاعدة المعرفة",
+    description: "مصدر معلومات يمكن ربطه بالوكيل."
+  },
+  products: {
+    title: "Store Products",
+    icon: "🛍",
+    subtitle: "بيانات منتجات المتجر",
+    description: "مصدر بيانات المنتجات والأسعار والتوفر."
+  },
+  condition: {
+    title: "Condition",
+    icon: "◇",
+    subtitle: "شرط أو قرار",
+    description: "يفصل سير العمل حسب شرط محدد."
+  },
+  approval: {
+    title: "Human Approval",
+    icon: "✓",
+    subtitle: "موافقة بشرية",
+    description: "يتطلب موافقة المسؤول قبل متابعة الإجراء."
+  },
+  action: {
+    title: "Action",
+    icon: "⚡",
+    subtitle: "إجراء",
+    description: "يمثل إجراءً يمكن ربطه بخدمة خارجية."
+  },
+  response: {
+    title: "Response",
+    icon: "💬",
+    subtitle: "الرد النهائي",
+    description: "يمثل الرسالة التي ستصل إلى العميل."
+  }
+};
+
+let nodes = [];
+let connections = [];
+let selectedId = null;
+let pendingConnection = null;
+let nextId = 1;
+let dragNode = null;
+let dragOffset = { x: 0, y: 0 };
+
+function showStatus(message) {
+  statusBox.textContent = message;
+  statusBox.style.display = "block";
+
+  clearTimeout(showStatus.timer);
+  showStatus.timer = setTimeout(() => {
+    statusBox.style.display = "none";
+  }, 2600);
+}
+
+function makeNode(type, x, y) {
+  if (!definitions[type]) return;
+
+  const node = {
+    id: "node_" + nextId++,
+    type,
+    x: Math.max(15, x),
+    y: Math.max(60, y),
+    name: definitions[type].title,
+    instruction: "",
+    value: ""
+  };
+
+  nodes.push(node);
+  selectedId = node.id;
+
+  render();
+  showStatus("تمت إضافة المكون");
+}
+
+function render() {
+  document.querySelectorAll(".node").forEach(el => el.remove());
+
+  nodes.forEach(node => {
+    const def = definitions[node.type];
+    const el = document.createElement("div");
+
+    el.className = "node" +
+      (node.id === selectedId ? " selected" : "");
+
+    el.dataset.id = node.id;
+    el.style.left = node.x + "px";
+    el.style.top = node.y + "px";
+
+    const header = document.createElement("div");
+    header.className = "node-header";
+
+    const icon = document.createElement("span");
+    icon.textContent = def.icon;
+
+    const heading = document.createElement("div");
+
+    const title = document.createElement("strong");
+    title.textContent = node.name || def.title;
+
+    const subtitle = document.createElement("small");
+    subtitle.textContent = def.subtitle;
+
+    heading.append(title, subtitle);
+    header.append(icon, heading);
+
+    const body = document.createElement("div");
+    body.className = "node-body";
+    body.textContent =
+      node.instruction ||
+      node.value ||
+      def.description;
+
+    const footer = document.createElement("div");
+    footer.className = "node-footer";
+    footer.textContent = node.type.toUpperCase();
+
+    el.append(header, body, footer);
+
+    if (node.type !== "start") {
+      const input = document.createElement("div");
+      input.className = "port input";
+      input.dataset.port = "input";
+      input.dataset.id = node.id;
+      el.append(input);
+    }
+
+    if (node.type !== "response") {
+      const output = document.createElement("div");
+      output.className = "port output";
+      output.dataset.port = "output";
+      output.dataset.id = node.id;
+      el.append(output);
+    }
+
+    canvas.append(el);
+  });
+
+  drawConnections();
+  renderProperties();
+}
+
+function drawConnections() {
+  svg.innerHTML = "";
+
+  connections.forEach(connection => {
+    const from = nodes.find(n => n.id === connection.from);
+    const to = nodes.find(n => n.id === connection.to);
+
+    if (!from || !to) return;
+
+    const startX = from.x + 205;
+    const startY = from.y + 54;
+    const endX = to.x;
+    const endY = to.y + 54;
+
+    const middleX = (startX + endX) / 2;
+
+    const path = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "path"
+    );
+
+    path.setAttribute(
+      "d",
+      `M ${startX} ${startY} C ${middleX} ${startY}, ${middleX} ${endY}, ${endX} ${endY}`
+    );
+
+    path.setAttribute("class", "connection");
+    svg.append(path);
+  });
+}
+
+function renderProperties() {
+  const node = nodes.find(n => n.id === selectedId);
+
+  if (!node) {
+    propertiesContent.className = "empty-properties";
+    propertiesContent.textContent =
+      "اختَر أي مكون من مساحة العمل لعرض إعداداته هنا.";
+    return;
+  }
+
+  propertiesContent.className = "";
+
+  const wrapper = document.createElement("div");
+
+  function addField(labelText, value, onInput, multiline = false) {
+    const field = document.createElement("div");
+    field.className = "field";
+
+    const label = document.createElement("label");
+    label.textContent = labelText;
+
+    const input = document.createElement(
+      multiline ? "textarea" : "input"
+    );
+
+    input.value = value || "";
+    input.addEventListener("input", event => {
+      onInput(event.target.value);
+    });
+
+    field.append(label, input);
+    wrapper.append(field);
+  }
+
+  addField("اسم المكون", node.name, value => {
+    node.name = value;
+    render();
+  });
+
+  addField("التعليمات", node.instruction, value => {
+    node.instruction = value;
+    updateNodePreview(node);
+  }, true);
+
+  addField("قيمة إضافية", node.value, value => {
+    node.value = value;
+    updateNodePreview(node);
+  }, true);
+
+  const deleteButton = document.createElement("button");
+  deleteButton.className = "delete-btn";
+  deleteButton.textContent = "حذف المكون";
+
+  deleteButton.addEventListener("click", () => {
+    nodes = nodes.filter(n => n.id !== node.id);
+
+    connections = connections.filter(
+      c => c.from !== node.id && c.to !== node.id
+    );
+
+    selectedId = null;
+    pendingConnection = null;
+
+    render();
+    showStatus("تم حذف المكون");
+  });
+
+  wrapper.append(deleteButton);
+  propertiesContent.replaceChildren(wrapper);
+}
+
+function updateNodePreview(node) {
+  const el = document.querySelector(
+    `.node[data-id="${node.id}"]`
+  );
+
+  if (!el) return;
+
+  const body = el.querySelector(".node-body");
+
+  body.textContent =
+    node.instruction ||
+    node.value ||
+    definitions[node.type].description;
+}
+
+// DRAG FROM SIDEBAR
+
+document.querySelectorAll(".node-option").forEach(option => {
+  option.addEventListener("dragstart", event => {
+    event.dataTransfer.setData(
+      "nodeType",
+      option.dataset.type
+    );
+  });
+
+  option.addEventListener("click", () => {
+    const x = canvasWrap.scrollLeft + 300;
+    const y = canvasWrap.scrollTop + 180;
+
+    makeNode(option.dataset.type, x, y);
+  });
+});
+
+canvasWrap.addEventListener("dragover", event => {
+  event.preventDefault();
+});
+
+canvasWrap.addEventListener("drop", event => {
+  event.preventDefault();
+
+  const type = event.dataTransfer.getData("nodeType");
+  if (!definitions[type]) return;
+
+  const rect = canvas.getBoundingClientRect();
+
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  makeNode(type, x, y);
+});
+
+// NODE SELECTION AND CONNECTION
+
+canvas.addEventListener("click", event => {
+  const port = event.target.closest(".port");
+
+  if (port) {
+    const id = port.dataset.id;
+    const direction = port.dataset.port;
+
+    if (direction === "output") {
+      pendingConnection = id;
+
+      document.querySelectorAll(".port").forEach(p => {
+        p.classList.remove("pending");
+      });
+
+      port.classList.add("pending");
+      showStatus("اختَر نقطة الدخول في المكون التالي");
+      return;
+    }
+
+    if (direction === "input" && pendingConnection) {
+      if (pendingConnection === id) {
+        showStatus("لا يمكن توصيل المكون بنفسه");
+        return;
+      }
+
+      const exists = connections.some(
+        c => c.from === pendingConnection && c.to === id
+      );
+
+      if (!exists) {
+        connections.push({
+          from: pendingConnection,
+          to: id
+        });
+
+        showStatus("تم إنشاء الاتصال");
+      } else {
+        showStatus("الاتصال موجود بالفعل");
+      }
+
+      pendingConnection = null;
+      render();
+      return;
+    }
+  }
+
+  const nodeElement = event.target.closest(".node");
+
+  if (nodeElement) {
+    selectedId = nodeElement.dataset.id;
+    render();
+  }
+});
+
+// MOVE NODES
+
+canvas.addEventListener("pointerdown", event => {
+  const header = event.target.closest(".node-header");
+  if (!header) return;
+
+  const element = header.closest(".node");
+  const node = nodes.find(n => n.id === element.dataset.id);
+
+  if (!node) return;
+
+  dragNode = node;
+
+  const rect = canvas.getBoundingClientRect();
+
+  dragOffset.x =
+    event.clientX - rect.left - node.x;
+
+  dragOffset.y =
+    event.clientY - rect.top - node.y;
+
+  element.setPointerCapture(event.pointerId);
+});
+
+canvas.addEventListener("pointermove", event => {
+  if (!dragNode) return;
+
+  const rect = canvas.getBoundingClientRect();
+
+  dragNode.x = Math.max(
+    10,
+    event.clientX - rect.left - dragOffset.x
+  );
+
+  dragNode.y = Math.max(
+    60,
+    event.clientY - rect.top - dragOffset.y
+  );
+
+  const element = document.querySelector(
+    `.node[data-id="${dragNode.id}"]`
+  );
+
+  if (element) {
+    element.style.left = dragNode.x + "px";
+    element.style.top = dragNode.y + "px";
+  }
+
+  drawConnections();
+});
+
+canvas.addEventListener("pointerup", () => {
+  dragNode = null;
+});
+
+canvas.addEventListener("pointercancel", () => {
+  dragNode = null;
+});
+
+// SAVE WORKFLOW
+
+function saveWorkflow() {
+  const workflow = {
+    version: 1,
+    name: "Ask Logvidia Agent",
+    nodes,
+    connections,
+    updatedAt: new Date().toISOString()
+  };
+
+  try {
+    localStorage.setItem(
+      "ask_logvidia_studio",
+      JSON.stringify(workflow)
+    );
+
+    showStatus("تم حفظ التصميم على هذا المتصفح");
+  } catch (error) {
+    showStatus("تعذر حفظ التصميم");
+  }
+}
+
+function loadWorkflow() {
+  try {
+    const saved = localStorage.getItem("ask_logvidia_studio");
+    if (!saved) return false;
+
+    const workflow = JSON.parse(saved);
+
+    if (
+      workflow.version !== 1 ||
+      !Array.isArray(workflow.nodes) ||
+      !Array.isArray(workflow.connections)
+    ) {
+      return false;
+    }
+
+    nodes = workflow.nodes.filter(
+      node => definitions[node.type]
+    );
+
+    connections = workflow.connections.filter(connection =>
+      nodes.some(n => n.id === connection.from) &&
+      nodes.some(n => n.id === connection.to)
+    );
+
+    const numbers = nodes.map(node =>
+      Number(String(node.id).replace("node_", ""))
+    );
+
+    nextId = Math.max(0, ...numbers) + 1;
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// EXPORT WORKFLOW
+
+function exportWorkflow() {
+  const data = JSON.stringify({
+    version: 1,
+    nodes,
+    connections
+  }, null, 2);
+
+  const blob = new Blob([data], {
+    type: "application/json"
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = "ask-logvidia-workflow.json";
+  link.click();
+
+  URL.revokeObjectURL(url);
+  showStatus("تم تصدير تصميم الوكيل");
+}
+
+// TEST WORKFLOW
+
+function testWorkflow() {
+  const startNodes = nodes.filter(n => n.type === "start");
+  const agentNodes = nodes.filter(n => n.type === "agent");
+  const responseNodes = nodes.filter(n => n.type === "response");
+
+  if (!startNodes.length) {
+    showStatus("أضف مكون Start أولًا");
+    return;
+  }
+
+  if (!agentNodes.length) {
+    showStatus("أضف مكون AI Agent");
+    return;
+  }
+
+  if (!responseNodes.length) {
+    showStatus("أضف مكون Response");
+    return;
+  }
+
+  if (!connections.length) {
+    showStatus("اربط المكونات ببعضها أولًا");
+    return;
+  }
+
+  const visited = new Set();
+  const queue = [startNodes[0].id];
+
+  while (queue.length) {
+    const current = queue.shift();
+
+    if (visited.has(current)) continue;
+    visited.add(current);
+
+    connections
+      .filter(c => c.from === current)
+      .forEach(c => queue.push(c.to));
+  }
+
+  const connectedAgent = agentNodes.some(n => visited.has(n.id));
+  const connectedResponse = responseNodes.some(n => visited.has(n.id));
+
+  if (!connectedAgent || !connectedResponse) {
+    showStatus("تأكد من وجود مسار متصل من Start إلى AI Agent ثم Response");
+    return;
+  }
+
+  showStatus("التصميم سليم مبدئيًا. التنفيذ الحقيقي لم يتم ربطه بعد.");
+}
+
+// BUTTONS
+
+document.getElementById("saveBtn").addEventListener(
+  "click",
+  saveWorkflow
+);
+
+document.getElementById("runBtn").addEventListener(
+  "click",
+  testWorkflow
+);
+
+document.getElementById("clearBtn").addEventListener(
+  "click",
+  () => {
+    if (!confirm("هل تريد حذف كل المكونات والاتصالات؟")) return;
+
+    nodes = [];
+    connections = [];
+    selectedId = null;
+    pendingConnection = null;
+
+    render();
+    showStatus("تم مسح مساحة العمل");
+  }
+);
+
+// INITIALIZE
+
+if (!loadWorkflow()) {
+  makeNode("start", 100, 180);
+  makeNode("agent", 430, 180);
+  makeNode("response", 780, 180);
+
+  connections = [
+    { from: nodes[0].id, to: nodes[1].id },
+    { from: nodes[1].id, to: nodes[2].id }
+  ];
+}
+
+render();
+</script>
+</body>
+</html>
